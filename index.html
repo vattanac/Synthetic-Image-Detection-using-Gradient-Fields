@@ -1,0 +1,1802 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Synthetic Image Detection — Gradient Fields</title>
+  <style>
+    /* ─── CSS RESET & VARIABLES ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sidebar-w: 270px;
+      --radius: 18px;
+      --radius-sm: 10px;
+      --transition: 0.35s cubic-bezier(.4,0,.2,1);
+
+      /* Light palette */
+      --bg: #f0f2f7;
+      --surface: #ffffff;
+      --surface2: #f7f8fc;
+      --border: #e2e6f0;
+      --text: #1a1d2e;
+      --text-muted: #6b7280;
+      --accent: #6c63ff;
+      --accent2: #ff6584;
+      --accent3: #43d9ad;
+      --accent4: #f6c90e;
+      --sidebar-bg: #ffffff;
+      --sidebar-text: #1a1d2e;
+      --sidebar-hover: #f0f0ff;
+      --sidebar-active: #6c63ff;
+      --tag-bg: #ede9ff;
+      --tag-text: #6c63ff;
+      --card-shadow: 0 4px 24px rgba(108,99,255,.08);
+      --glow: 0 0 0 3px rgba(108,99,255,.15);
+      --code-bg: #f3f4f9;
+      --formula-bg: #fffef5;
+      --step-line: #e2e6f0;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0f1117;
+      --surface: #1a1d2e;
+      --surface2: #242740;
+      --border: #2e3250;
+      --text: #edf0ff;
+      --text-muted: #8891b4;
+      --accent: #8b84ff;
+      --accent2: #ff7b96;
+      --accent3: #43d9ad;
+      --accent4: #f6c90e;
+      --sidebar-bg: #13162a;
+      --sidebar-text: #c5cae9;
+      --sidebar-hover: #1e2240;
+      --sidebar-active: #8b84ff;
+      --tag-bg: #23234a;
+      --tag-text: #a89bff;
+      --card-shadow: 0 4px 32px rgba(0,0,0,.4);
+      --glow: 0 0 0 3px rgba(139,132,255,.2);
+      --code-bg: #1e2240;
+      --formula-bg: #1e2033;
+      --step-line: #2e3250;
+    }
+
+    /* ─── TYPOGRAPHY ────────────────────────────────────────────────── */
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      min-height: 100vh;
+      transition: background var(--transition), color var(--transition);
+      line-height: 1.7;
+    }
+
+    /* ─── SIDEBAR ───────────────────────────────────────────────────── */
+    .sidebar {
+      width: var(--sidebar-w);
+      min-height: 100vh;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 100;
+      transition: background var(--transition), border-color var(--transition);
+      overflow-y: auto;
+    }
+
+    .sidebar-logo {
+      padding: 28px 22px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-logo .icon {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(108,99,255,.3);
+    }
+
+    .sidebar-logo .title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.3;
+    }
+    .sidebar-logo .subtitle {
+      font-size: 10.5px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .nav-section {
+      padding: 18px 14px 8px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: var(--text-muted);
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 18px;
+      margin: 2px 8px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--sidebar-text);
+      text-decoration: none;
+      transition: background var(--transition), color var(--transition);
+      position: relative;
+    }
+
+    .nav-item:hover { background: var(--sidebar-hover); }
+    .nav-item.active {
+      background: var(--tag-bg);
+      color: var(--sidebar-active);
+      font-weight: 600;
+    }
+
+    .nav-item .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+    .nav-item .nav-badge {
+      margin-left: auto;
+      background: var(--accent);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 20px;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 16px 18px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ─── THEME TOGGLE ──────────────────────────────────────────────── */
+    .theme-toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface2);
+      border-radius: 50px;
+      padding: 6px 14px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      transition: all var(--transition);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      width: 100%;
+      justify-content: center;
+    }
+    .theme-toggle:hover { background: var(--sidebar-hover); }
+
+    .toggle-pill {
+      width: 36px; height: 20px;
+      background: var(--border);
+      border-radius: 20px;
+      position: relative;
+      transition: background var(--transition);
+    }
+    [data-theme="dark"] .toggle-pill { background: var(--accent); }
+    .toggle-pill::after {
+      content: '';
+      width: 14px; height: 14px;
+      background: #fff;
+      border-radius: 50%;
+      position: absolute;
+      top: 3px; left: 3px;
+      transition: transform var(--transition);
+      box-shadow: 0 1px 4px rgba(0,0,0,.2);
+    }
+    [data-theme="dark"] .toggle-pill::after { transform: translateX(16px); }
+
+    /* ─── MAIN CONTENT ──────────────────────────────────────────────── */
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      padding: 40px 50px 80px;
+      max-width: 900px;
+    }
+
+    /* ─── SECTIONS ──────────────────────────────────────────────────── */
+    .section {
+      display: none;
+      animation: fadeIn .4s ease;
+    }
+    .section.active { display: block; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─── HERO BANNER ───────────────────────────────────────────────── */
+    .hero {
+      background: linear-gradient(135deg, #6c63ff 0%, #a78bfa 50%, #ff6584 100%);
+      border-radius: var(--radius);
+      padding: 44px 44px 38px;
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 36px;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -60px; right: -60px;
+      width: 260px; height: 260px;
+      background: rgba(255,255,255,.08);
+      border-radius: 50%;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      bottom: -80px; right: 80px;
+      width: 180px; height: 180px;
+      background: rgba(255,255,255,.05);
+      border-radius: 50%;
+    }
+    .hero-tag {
+      display: inline-block;
+      background: rgba(255,255,255,.2);
+      backdrop-filter: blur(6px);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      margin-bottom: 16px;
+    }
+    .hero h1 {
+      font-size: 30px;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 14px;
+      position: relative;
+      z-index: 1;
+    }
+    .hero p {
+      font-size: 15px;
+      opacity: .9;
+      max-width: 520px;
+      position: relative;
+      z-index: 1;
+      line-height: 1.65;
+    }
+
+    /* ─── CARDS ─────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: 28px 32px;
+      margin-bottom: 24px;
+      box-shadow: var(--card-shadow);
+      transition: background var(--transition), border-color var(--transition);
+    }
+
+    .card h2 {
+      font-size: 19px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card h3 {
+      font-size: 15px;
+      font-weight: 700;
+      margin: 20px 0 8px;
+      color: var(--accent);
+    }
+
+    .card p {
+      font-size: 14.5px;
+      color: var(--text);
+      line-height: 1.75;
+      margin-bottom: 12px;
+    }
+
+    .card p:last-child { margin-bottom: 0; }
+
+    /* ─── STEP CARDS ─────────────────────────────────────────────────── */
+    .step-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: 28px 32px;
+      margin-bottom: 20px;
+      box-shadow: var(--card-shadow);
+      position: relative;
+      transition: background var(--transition), border-color var(--transition);
+    }
+
+    .step-number {
+      position: absolute;
+      top: -14px; left: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px;
+      font-weight: 800;
+      box-shadow: 0 4px 12px rgba(108,99,255,.35);
+    }
+
+    .step-card h2 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      margin-top: 6px;
+    }
+    .step-card .step-subtitle {
+      font-size: 12px;
+      color: var(--accent);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-bottom: 16px;
+    }
+    .step-card p {
+      font-size: 14.5px;
+      line-height: 1.75;
+      margin-bottom: 14px;
+      color: var(--text);
+    }
+    .step-card p:last-child { margin-bottom: 0; }
+
+    /* ─── FORMULA BOX ─────────────────────────────────────────────── */
+    .formula-box {
+      background: var(--formula-bg);
+      border: 1.5px solid var(--accent);
+      border-radius: var(--radius-sm);
+      padding: 18px 22px;
+      margin: 16px 0;
+      font-family: 'Georgia', serif;
+      font-size: 15px;
+      text-align: center;
+      color: var(--text);
+    }
+
+    .formula-box .formula-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--accent);
+      font-family: 'Segoe UI', sans-serif;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .highlight-red { color: #e74c3c; font-weight: 700; }
+    .highlight-green { color: #27ae60; font-weight: 700; }
+    .highlight-blue { color: #2980b9; font-weight: 700; }
+    .highlight-purple { color: var(--accent); font-weight: 700; }
+    .highlight-yellow { color: #d4a400; font-weight: 700; }
+    .highlight-pink { color: var(--accent2); font-weight: 700; }
+
+    /* ─── ANALOGY BOX ──────────────────────────────────────────────── */
+    .analogy {
+      background: linear-gradient(135deg, rgba(108,99,255,.07), rgba(255,101,132,.07));
+      border-left: 4px solid var(--accent);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      padding: 16px 20px;
+      margin: 16px 0;
+      font-size: 14px;
+      color: var(--text);
+    }
+    .analogy strong { color: var(--accent); }
+    .analogy .analogy-title {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+
+    /* ─── INFO BOXES ─────────────────────────────────────────────── */
+    .info-box {
+      border-radius: var(--radius-sm);
+      padding: 16px 20px;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+    .info-box.yellow {
+      background: rgba(246,201,14,.12);
+      border: 1px solid rgba(246,201,14,.4);
+      color: var(--text);
+    }
+    .info-box.green {
+      background: rgba(67,217,173,.12);
+      border: 1px solid rgba(67,217,173,.4);
+      color: var(--text);
+    }
+    .info-box.red {
+      background: rgba(255,101,132,.1);
+      border: 1px solid rgba(255,101,132,.35);
+      color: var(--text);
+    }
+    .info-box .info-title {
+      font-weight: 700;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-bottom: 6px;
+    }
+    .info-box.yellow .info-title { color: #b08a00; }
+    .info-box.green .info-title { color: #1e9e7e; }
+    .info-box.red .info-title { color: #c0325e; }
+
+    /* ─── COMPARISON TABLE ─────────────────────────────────────────── */
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin: 20px 0;
+    }
+    .compare-col {
+      border-radius: var(--radius-sm);
+      padding: 20px;
+    }
+    .compare-col.real {
+      background: rgba(67,217,173,.1);
+      border: 1.5px solid rgba(67,217,173,.4);
+    }
+    .compare-col.fake {
+      background: rgba(255,101,132,.1);
+      border: 1.5px solid rgba(255,101,132,.4);
+    }
+    .compare-col .col-title {
+      font-weight: 800;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-bottom: 12px;
+    }
+    .compare-col.real .col-title { color: #1e9e7e; }
+    .compare-col.fake .col-title { color: #c0325e; }
+
+    .compare-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 13.5px;
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+    .compare-item .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      margin-top: 6px;
+      flex-shrink: 0;
+    }
+    .compare-col.real .dot { background: #43d9ad; }
+    .compare-col.fake .dot { background: #ff6584; }
+
+    /* ─── PIXEL VISUAL ─────────────────────────────────────────────── */
+    .pixel-grid {
+      display: grid;
+      gap: 3px;
+      margin: 16px 0;
+      justify-content: center;
+    }
+    .pixel-row { display: flex; gap: 3px; }
+    .pixel {
+      width: 36px; height: 36px;
+      border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      color: white;
+      text-shadow: 0 1px 3px rgba(0,0,0,.4);
+    }
+
+    /* ─── GRADIENT VISUAL ─────────────────────────────────────────── */
+    .gradient-demo {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 20px;
+      align-items: center;
+      margin: 20px 0;
+    }
+    .gradient-demo .arrow {
+      font-size: 24px;
+      color: var(--accent);
+      text-align: center;
+    }
+    .gradient-col { text-align: center; }
+    .gradient-col .label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      letter-spacing: .08em;
+    }
+
+    /* ─── PCA VISUAL ──────────────────────────────────────────────── */
+    .pca-visual {
+      background: var(--surface2);
+      border-radius: var(--radius-sm);
+      padding: 24px;
+      margin: 20px 0;
+      position: relative;
+      min-height: 180px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .scatter-dot {
+      position: absolute;
+      width: 10px; height: 10px;
+      border-radius: 50%;
+    }
+
+    /* ─── TAG PILLS ───────────────────────────────────────────────── */
+    .tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+    .tag {
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 11.5px;
+      font-weight: 600;
+    }
+
+    /* ─── PROGRESS STEPS ─────────────────────────────────────────── */
+    .flow-steps {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0;
+      margin: 24px 0;
+    }
+    .flow-step {
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 18px;
+      text-align: center;
+      min-width: 120px;
+      flex: 1;
+    }
+    .flow-step .fs-icon { font-size: 22px; margin-bottom: 6px; }
+    .flow-step .fs-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .flow-step .fs-title {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .flow-arrow {
+      font-size: 18px;
+      color: var(--accent);
+      padding: 0 6px;
+      flex-shrink: 0;
+    }
+
+    /* ─── SECTION HEADER ─────────────────────────────────────────── */
+    .section-header {
+      margin-bottom: 28px;
+    }
+    .section-header h1 {
+      font-size: 26px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    .section-header p {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    /* ─── MATRIX VISUAL ─────────────────────────────────────────── */
+    .matrix-visual {
+      font-family: 'Courier New', monospace;
+      background: var(--code-bg);
+      border-radius: var(--radius-sm);
+      padding: 20px 24px;
+      font-size: 13px;
+      color: var(--text);
+      margin: 16px 0;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      line-height: 1.8;
+    }
+
+    /* ─── DIVIDER ──────────────────────────────────────────────── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 28px 0;
+    }
+
+    /* ─── CALLOUT ──────────────────────────────────────────────── */
+    .callout {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      color: #fff;
+      margin: 24px 0;
+    }
+    .callout h3 { font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+    .callout p { font-size: 14px; opacity: .9; line-height: 1.7; margin: 0; }
+
+    /* ─── BIG NUMBER ─────────────────────────────────────────── */
+    .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 20px 0; }
+    .stat-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 18px;
+      text-align: center;
+    }
+    .stat-card .stat-val {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--accent);
+      display: block;
+    }
+    .stat-card .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    /* ─── SCROLLBAR ─────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+    /* ─── RESPONSIVE ─────────────────────────────────────────── */
+    @media (max-width: 800px) {
+      :root { --sidebar-w: 60px; }
+      .sidebar-logo .title, .sidebar-logo .subtitle, .nav-item span, .nav-section, .nav-item .nav-badge { display: none; }
+      .sidebar-logo .icon { margin: 0; }
+      .nav-item { justify-content: center; padding: 12px; }
+      .nav-item .nav-icon { width: auto; font-size: 18px; }
+      .main { padding: 24px 20px 60px; max-width: 100%; }
+      .compare-grid { grid-template-columns: 1fr; }
+      .stat-row { grid-template-columns: 1fr 1fr; }
+      .flow-steps { flex-direction: column; }
+      .flow-arrow { transform: rotate(90deg); }
+      .gradient-demo { grid-template-columns: 1fr; }
+    }
+
+    /* ─── CANVAS CHART ─────────────────────────────────────── */
+    canvas { border-radius: var(--radius-sm); display: block; margin: 0 auto; }
+
+    /* ─── BACK TO TOP ─────────────────────────────────────── */
+    .back-to-top {
+      position: fixed;
+      bottom: 28px; right: 28px;
+      background: var(--accent);
+      color: #fff;
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(108,99,255,.4);
+      opacity: 0;
+      transition: opacity .3s;
+      z-index: 200;
+    }
+    .back-to-top.visible { opacity: 1; }
+
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    th { background: var(--surface2); padding: 12px 16px; text-align: left; font-weight: 700; border-bottom: 2px solid var(--border); color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+    td { padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--surface2); }
+
+    /* reading progress bar */
+    #progress-bar {
+      position: fixed; top: 0; left: var(--sidebar-w); right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      z-index: 300;
+      width: 0%;
+      transition: width .1s linear;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Reading Progress Bar -->
+<div id="progress-bar"></div>
+
+<!-- ─── SIDEBAR ─────────────────────────────────────────────────── -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="icon">🔍</div>
+    <div>
+      <div class="title">Gradient Field<br>Detector</div>
+      <div class="subtitle">For Non-Technicals</div>
+    </div>
+  </div>
+
+  <div class="nav-section">Overview</div>
+  <a class="nav-item active" onclick="showSection('intro', this)">
+    <span class="nav-icon">🏠</span><span>Introduction</span>
+  </a>
+  <a class="nav-item" onclick="showSection('problem', this)">
+    <span class="nav-icon">❓</span><span>The Problem</span>
+  </a>
+  <a class="nav-item" onclick="showSection('pipeline', this)">
+    <span class="nav-icon">🔄</span><span>How It Works</span>
+  </a>
+
+  <div class="nav-section">Deep Dive Steps</div>
+  <a class="nav-item" onclick="showSection('step1', this)">
+    <span class="nav-icon">1️⃣</span><span>Step 1 — Luminance</span>
+  </a>
+  <a class="nav-item" onclick="showSection('step2', this)">
+    <span class="nav-icon">2️⃣</span><span>Step 2 — Gradients</span>
+  </a>
+  <a class="nav-item" onclick="showSection('step3', this)">
+    <span class="nav-icon">3️⃣</span><span>Step 3 — Matrix</span>
+  </a>
+  <a class="nav-item" onclick="showSection('step4', this)">
+    <span class="nav-icon">4️⃣</span><span>Step 4 — Covariance</span>
+  </a>
+  <a class="nav-item" onclick="showSection('step5', this)">
+    <span class="nav-icon">5️⃣</span><span>Step 5 — PCA</span>
+  </a>
+
+  <div class="nav-section">Insights</div>
+  <a class="nav-item" onclick="showSection('realvsfake', this)">
+    <span class="nav-icon">⚖️</span><span>Real vs Fake</span>
+  </a>
+  <a class="nav-item" onclick="showSection('why', this)">
+    <span class="nav-icon">💡</span><span>Why It Works</span>
+  </a>
+  <a class="nav-item" onclick="showSection('applications', this)">
+    <span class="nav-icon">🚀</span><span>Applications</span>
+  </a>
+  <a class="nav-item" onclick="showSection('limits', this)">
+    <span class="nav-icon">⚠️</span><span>Limitations</span>
+  </a>
+
+  <div class="sidebar-footer">
+    <div class="theme-toggle" onclick="toggleTheme()">
+      <span>🌙</span>
+      <div class="toggle-pill"></div>
+      <span>Dark</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ─── MAIN CONTENT ──────────────────────────────────────────────── -->
+<main class="main" id="main-content">
+
+  <!-- ═══ INTRO ═══════════════════════════════════════════════════ -->
+  <section class="section active" id="intro">
+    <div class="hero">
+      <div class="hero-tag">💡 Research Preview · 2026</div>
+      <h1>Can Math Tell Real Photos<br>from AI-Generated Fakes?</h1>
+      <p>This guide breaks down a clever technique that uses pixel math — <em>no AI classifier, no metadata</em> — to spot synthetic images. Written for everyone, not just engineers.</p>
+    </div>
+
+    <div class="card">
+      <h2>📖 What Is This All About?</h2>
+      <p>Every digital image is made of millions of tiny colored squares called <strong>pixels</strong>. Whether a photo was taken by a camera or generated by an AI model like Stable Diffusion or DALL·E, it still looks like a grid of pixels to a computer.</p>
+      <p>The challenge: <strong>can we tell the difference just by analyzing those pixels mathematically?</strong> This technique says: yes — by studying how colors <em>change</em> across the image, we can reveal hidden fingerprints that separate real photos from AI fakes.</p>
+      <div class="analogy">
+        <div class="analogy-title">🎭 Everyday Analogy</div>
+        Think of it like handwriting analysis. A human writes with natural pressure variations, muscle tremors, and flow — AI-printed text is "too perfect". Similarly, real camera photos have natural, physics-based light variations, while AI-generated images have subtle mathematical "too-perfectness" in their pixel patterns.
+      </div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <span class="stat-val">5</span>
+        <span class="stat-label">Steps in the Method</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-val">0</span>
+        <span class="stat-label">AI Classifiers Needed</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-val">∞</span>
+        <span class="stat-label">Interpretability</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🗺️ Your Learning Journey</h2>
+      <p>We'll walk through 5 steps, each building on the last. Click any section in the left menu to jump around, or follow them in order for the full picture.</p>
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="fs-icon">🎨</div>
+          <div class="fs-label">Step 1</div>
+          <div class="fs-title">RGB → Luminance</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="fs-icon">📐</div>
+          <div class="fs-label">Step 2</div>
+          <div class="fs-title">Gradients</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="fs-icon">📊</div>
+          <div class="fs-label">Step 3</div>
+          <div class="fs-title">Matrix M</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="fs-icon">🧮</div>
+          <div class="fs-label">Step 4</div>
+          <div class="fs-title">Covariance</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="fs-icon">🔭</div>
+          <div class="fs-label">Step 5</div>
+          <div class="fs-title">PCA</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ PROBLEM ══════════════════════════════════════════════════ -->
+  <section class="section" id="problem">
+    <div class="section-header">
+      <h1>❓ The Problem We're Solving</h1>
+      <p>Why do we even need this? What's the threat?</p>
+    </div>
+
+    <div class="card">
+      <h2>🌍 The Deepfake Crisis</h2>
+      <p>AI image generators have become <em>shockingly good</em>. In 2024–2026, tools like Stable Diffusion, Midjourney, and DALL·E can create photorealistic images of people, places, and events that <strong>never actually happened</strong>.</p>
+      <p>These fake images are being used for:</p>
+      <div class="tags">
+        <span class="tag">🗳️ Political disinformation</span>
+        <span class="tag">💸 Financial fraud</span>
+        <span class="tag">🔞 Non-consensual content</span>
+        <span class="tag">📰 Fake news fabrication</span>
+        <span class="tag">🏛️ Evidence tampering</span>
+        <span class="tag">🛍️ Product fraud</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🤔 Why Is Detection Hard?</h2>
+      <p>At first glance, AI-generated images look perfect — maybe even <em>too perfect</em>. Traditional detection methods have big flaws:</p>
+      <div class="table-wrap">
+        <table>
+          <tr>
+            <th>Method</th>
+            <th>How it works</th>
+            <th>Problem</th>
+          </tr>
+          <tr>
+            <td><strong>Metadata inspection</strong></td>
+            <td>Check camera info embedded in file</td>
+            <td>Easy to fake or strip metadata</td>
+          </tr>
+          <tr>
+            <td><strong>AI classifiers</strong></td>
+            <td>Train another AI to spot fakes</td>
+            <td>Can be fooled by adversarial tricks</td>
+          </tr>
+          <tr>
+            <td><strong>Visual inspection</strong></td>
+            <td>Human experts look at the image</td>
+            <td>Slow, expensive, subjective</td>
+          </tr>
+          <tr>
+            <td><strong>Gradient Field PCA ✅</strong></td>
+            <td>Math-based pixel analysis</td>
+            <td>Lightweight, interpretable, robust</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="callout">
+      <h3>✨ The Insight</h3>
+      <p>Real cameras capture light that follows the laws of physics. AI models generate pixels by guessing "what looks right" — and those two processes leave <em>mathematically different fingerprints</em> in how pixel brightness changes across the image. That's the key insight this technique exploits.</p>
+    </div>
+  </section>
+
+  <!-- ═══ PIPELINE ═════════════════════════════════════════════════ -->
+  <section class="section" id="pipeline">
+    <div class="section-header">
+      <h1>🔄 The Full Pipeline at a Glance</h1>
+      <p>Five steps from raw image to verdict</p>
+    </div>
+
+    <div class="card">
+      <h2>🗺️ Overview Map</h2>
+      <p>Here's the entire process, start to finish. Don't worry — each step is explained in full detail in its own section.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-number">1</div>
+      <div class="step-subtitle">Step 1</div>
+      <h2>🎨 Convert Color to Brightness (Luminance)</h2>
+      <p>Images start as three color channels: Red, Green, Blue. We <strong>blend them into a single brightness map</strong> called luminance, similar to converting a color photo to grayscale — but with precise scientific weights that match how human eyes perceive light.</p>
+      <div class="info-box yellow">
+        <div class="info-title">⚡ Why simplify to one channel?</div>
+        Working with one brightness channel is much simpler than three color channels. And brightness changes (not color) are what reveal structural patterns most clearly.
+      </div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-number">2</div>
+      <div class="step-subtitle">Step 2</div>
+      <h2>📐 Compute Gradients (Edges & Changes)</h2>
+      <p>For every pixel, we calculate <strong>how much the brightness changes</strong> going left-to-right (horizontal gradient Gx) and top-to-bottom (vertical gradient Gy). Areas with sharp brightness changes become bright in the gradient image — edges of objects, lighting boundaries, textures.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-number">3</div>
+      <div class="step-subtitle">Step 3</div>
+      <h2>📊 Build the Gradient Matrix M</h2>
+      <p>We take all N pixels and stack their gradient pairs (Gx, Gy) into a big table with N rows and 2 columns. This <strong>matrix M</strong> is a compact mathematical description of the image's entire gradient structure.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-number">4</div>
+      <div class="step-subtitle">Step 4</div>
+      <h2>🧮 Compute the Covariance Matrix C</h2>
+      <p>We calculate how Gx and Gy are <strong>statistically related</strong> across the whole image. This 2×2 matrix captures the overall "shape" and "direction" of gradient patterns — are they more horizontal, vertical, or mixed?</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-number">5</div>
+      <div class="step-subtitle">Step 5</div>
+      <h2>🔭 PCA — Find the Dominant Pattern</h2>
+      <p>Principal Component Analysis (PCA) finds the <strong>main axis of variation</strong> in the gradient data. Real photos and AI fakes produce very different "shapes" in this analysis — allowing us to separate them with a single mathematical projection.</p>
+    </div>
+
+    <div class="info-box green">
+      <div class="info-title">🏁 Result</div>
+      By comparing the PCA output of an unknown image against known distributions of real and fake images, we can classify it — with no AI model required. Just math.
+    </div>
+  </section>
+
+  <!-- ═══ STEP 1 ════════════════════════════════════════════════════ -->
+  <section class="section" id="step1">
+    <div class="section-header">
+      <h1>🎨 Step 1: Luminance — Seeing in Brightness</h1>
+      <p>Converting colorful RGB pixels into a single brightness value</p>
+    </div>
+
+    <div class="card">
+      <h2>🌈 What Is RGB?</h2>
+      <p>Every pixel in a digital image is defined by three numbers: the intensity of <span class="highlight-red">Red</span>, <span class="highlight-green">Green</span>, and <span class="highlight-blue">Blue</span> light, each ranging from 0 (none) to 255 (maximum).</p>
+
+      <div class="analogy">
+        <div class="analogy-title">🖨️ Printer Analogy</div>
+        Think of RGB like mixing colored spotlights. A pixel with R=255, G=0, B=0 is pure red. R=255, G=255, B=0 is yellow. R=255, G=255, B=255 is white. Your screen combines these three beams of light to create every color you see.
+      </div>
+
+      <p>Here's a tiny example — a 3×3 pixel image, showing R, G, B values:</p>
+
+      <div style="display:flex; gap:16px; flex-wrap:wrap; margin:16px 0; justify-content:center;">
+        <div>
+          <div style="text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Red Channel</div>
+          <div class="pixel-row"><div class="pixel" style="background:#e74c3c">230</div><div class="pixel" style="background:#c0392b">180</div><div class="pixel" style="background:#922b21">120</div></div>
+          <div class="pixel-row"><div class="pixel" style="background:#e74c3c">210</div><div class="pixel" style="background:#e74c3c">200</div><div class="pixel" style="background:#cb4335">190</div></div>
+          <div class="pixel-row"><div class="pixel" style="background:#c0392b">170</div><div class="pixel" style="background:#a93226">140</div><div class="pixel" style="background:#922b21">100</div></div>
+        </div>
+        <div>
+          <div style="text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Green Channel</div>
+          <div class="pixel-row"><div class="pixel" style="background:#27ae60">180</div><div class="pixel" style="background:#229954">150</div><div class="pixel" style="background:#1e8449">100</div></div>
+          <div class="pixel-row"><div class="pixel" style="background:#1d8348">90</div><div class="pixel" style="background:#117a65">70</div><div class="pixel" style="background:#0e6655">50</div></div>
+          <div class="pixel-row"><div class="pixel" style="background:#0b5345">30</div><div class="pixel" style="background:#093c34">20</div><div class="pixel" style="background:#072e27">10</div></div>
+        </div>
+        <div>
+          <div style="text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Blue Channel</div>
+          <div class="pixel-row"><div class="pixel" style="background:#2980b9">200</div><div class="pixel" style="background:#2471a3">170</div><div class="pixel" style="background:#1a5276">140</div></div>
+          <div class="pixel-row"><div class="pixel" style="background:#154360">100</div><div class="pixel" style="background:#1f618d">80</div><div class="pixel" style="background:#2980b9">60</div></div>
+          <div class="pixel-row"><div class="pixel" style="background:#1a5276">40</div><div class="pixel" style="background:#154360">25</div><div class="pixel" style="background:#0d2b45">10</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>👁️ What Is Luminance?</h2>
+      <p>Luminance is a single number that tells us <strong>how bright</strong> a pixel appears to the human eye. Our eyes are not equally sensitive to all colors — we're most sensitive to green, less to red, and least to blue.</p>
+
+      <div class="formula-box">
+        <div class="formula-label">The Luminance Formula</div>
+        <strong>L(x,y) = 0.2126 × <span class="highlight-red">R(x,y)</span> + 0.7152 × <span class="highlight-green">G(x,y)</span> + 0.0722 × <span class="highlight-blue">B(x,y)</span></strong>
+      </div>
+
+      <div class="compare-grid">
+        <div class="compare-col real">
+          <div class="col-title">✅ The Weights Explained</div>
+          <div class="compare-item"><div class="dot"></div><div><span class="highlight-red">0.2126</span> — Red contributes <strong>21%</strong> of perceived brightness</div></div>
+          <div class="compare-item"><div class="dot"></div><div><span class="highlight-green">0.7152</span> — Green contributes <strong>72%</strong> of perceived brightness</div></div>
+          <div class="compare-item"><div class="dot"></div><div><span class="highlight-blue">0.0722</span> — Blue contributes only <strong>7%</strong> of perceived brightness</div></div>
+        </div>
+        <div class="compare-col fake">
+          <div class="col-title">🧪 Concrete Example</div>
+          <div class="compare-item"><div class="dot"></div><div>R=200, G=150, B=80</div></div>
+          <div class="compare-item"><div class="dot"></div><div>L = 0.2126×200 + 0.7152×150 + 0.0722×80</div></div>
+          <div class="compare-item"><div class="dot"></div><div>L = 42.52 + 107.28 + 5.78 = <strong>155.58</strong></div></div>
+        </div>
+      </div>
+
+      <div class="analogy">
+        <div class="analogy-title">🌿 Why Does Green Dominate?</div>
+        Evolution! The human visual system evolved outdoors, where green foliage and sunlight are most important. Your eyes have more green-sensitive cone cells than red or blue ones. This is the same reason green screens are used in film production — green has the most distinct contrast from human skin tones.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📸 Before & After</h2>
+      <p>After applying this formula to every pixel, our colorful image becomes a grayscale <strong>luminance map</strong> — a 2D grid of brightness values. This is what you see in the lower images in the figure: the jet fighter images converted to gradient visualizations.</p>
+      <div class="info-box yellow">
+        <div class="info-title">⚡ Key Insight</div>
+        We've now reduced a complex 3-channel color image into a simpler single-channel brightness map. We haven't lost important structural information — edges, textures, and lighting patterns are all preserved. We've just made it cleaner to analyze.
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ STEP 2 ════════════════════════════════════════════════════ -->
+  <section class="section" id="step2">
+    <div class="section-header">
+      <h1>📐 Step 2: Gradients — Detecting Change</h1>
+      <p>Finding how brightness shifts from pixel to pixel</p>
+    </div>
+
+    <div class="card">
+      <h2>🔬 What Is a Gradient?</h2>
+      <p>A gradient measures <strong>how fast something changes</strong>. In our case, we want to know how quickly brightness changes as we move across the image.</p>
+
+      <div class="analogy">
+        <div class="analogy-title">⛰️ Mountain Slope Analogy</div>
+        Imagine our image is a landscape where brightness is elevation. A flat field of uniform color is like a flat plain — no slope. The edge of a building against the sky is like a cliff — sudden steep change. A gradient is literally the slope of this brightness landscape at each point. <strong>Gx = slope going left-right. Gy = slope going up-down.</strong>
+      </div>
+
+      <div class="formula-box">
+        <div class="formula-label">The Two Gradient Directions</div>
+        <strong>G<sub>x</sub>(x,y)</strong> = ∂L(x,y)/∂x = change in brightness going <em>horizontally</em><br><br>
+        <strong>G<sub>y</sub>(x,y)</strong> = ∂L(x,y)/∂y = change in brightness going <em>vertically</em>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🧮 How Do We Actually Calculate It?</h2>
+      <p>In practice, we approximate the gradient by looking at neighboring pixels. For the horizontal gradient Gx at position (x,y):</p>
+
+      <div class="formula-box">
+        <div class="formula-label">Simple Approximation</div>
+        G<sub>x</sub>(x,y) ≈ L(x+1, y) − L(x−1, y)<br><br>
+        <em>(brightness of right neighbor) minus (brightness of left neighbor)</em>
+      </div>
+
+      <div class="matrix-visual">
+pixel brightness values (small section):
+┌─────┬─────┬─────┬─────┬─────┐
+│  80 │  82 │  85 │ 150 │ 152 │  ← flat area (no edge)
+│  79 │  81 │  84 │ 148 │ 151 │
+│  80 │  82 │  86 │ 152 │ 153 │
+└─────┴─────┴─────┴─────┴─────┘
+
+Gx at pixel (x=3, row 1): 150 − 82 = 68  ← BIG change! That's an edge!
+Gx at pixel (x=1, row 1):  82 − 80 =  2  ← tiny change. No edge.
+      </div>
+
+      <p>Notice how the gradient value is <strong>large (68)</strong> at the edge (where brightness jumps from ~84 to ~150) and <strong>tiny (2)</strong> in uniform areas. This is exactly how edges get detected!</p>
+    </div>
+
+    <div class="card">
+      <h2>🧭 The Gradient Vector</h2>
+      <p>Together, Gx and Gy form a <strong>2D vector</strong> at every single pixel. This vector tells us two things:</p>
+
+      <div class="compare-grid">
+        <div class="compare-col real">
+          <div class="col-title">📏 Magnitude (Strength)</div>
+          <div class="compare-item"><div class="dot"></div><div>How sharp/strong the edge is at this pixel</div></div>
+          <div class="compare-item"><div class="dot"></div><div>= √(Gx² + Gy²)</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Large = strong edge. Small = flat region.</div></div>
+        </div>
+        <div class="compare-col fake">
+          <div class="col-title">🧭 Direction</div>
+          <div class="compare-item"><div class="dot"></div><div>Which way the edge is pointing</div></div>
+          <div class="compare-item"><div class="dot"></div><div>= atan2(Gy, Gx)</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Horizontal edge, vertical edge, diagonal...</div></div>
+        </div>
+      </div>
+
+      <div class="formula-box">
+        <div class="formula-label">2D Gradient Vector Per Pixel</div>
+        <strong>v(x,y)</strong> = [ G<sub>x</sub>(x,y), G<sub>y</sub>(x,y) ]ᵀ
+      </div>
+
+      <div class="analogy">
+        <div class="analogy-title">🧲 Compass Analogy</div>
+        Think of each pixel having a tiny compass needle. In a real photo, needles near an object's edge all point in roughly the same direction (perpendicular to the edge). In an AI-generated image, these needles can be more chaotic or unnaturally uniform, betraying the image's artificial origin.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🖼️ What the Gradient Image Looks Like</h2>
+      <p>In the figure you shared, the bottom row shows the gradient visualization of each image. Notice:</p>
+      <div class="compare-grid">
+        <div class="compare-col real">
+          <div class="col-title">✅ Real Photo Gradients</div>
+          <div class="compare-item"><div class="dot"></div><div>Rich, complex texture in the background</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Gradients are "noisy" and natural looking</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Atmospheric haze creates soft gradient transitions</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Physics of light creates coherent patterns</div></div>
+        </div>
+        <div class="compare-col fake">
+          <div class="col-title">🚨 AI Fake Gradients</div>
+          <div class="compare-item"><div class="dot"></div><div>Background is relatively flat/smooth</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Gradients are "too clean" in areas</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Object edges look artificially crisp</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Missing the organic imperfections of camera physics</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ STEP 3 ════════════════════════════════════════════════════ -->
+  <section class="section" id="step3">
+    <div class="section-header">
+      <h1>📊 Step 3: The Matrix M — Organizing the Data</h1>
+      <p>Stacking all gradient vectors into one big table</p>
+    </div>
+
+    <div class="card">
+      <h2>📋 What Is a Matrix?</h2>
+      <p>A matrix is simply a <strong>rectangular table of numbers</strong>, organized in rows and columns. Spreadsheet users: you already know matrices! An Excel sheet <em>is</em> a matrix.</p>
+
+      <div class="analogy">
+        <div class="analogy-title">📊 Spreadsheet Analogy</div>
+        Imagine you're tracking all employees in a company. Each row = one employee. Column 1 = salary. Column 2 = age. You'd have an N×2 table where N is the number of employees. That's exactly what Matrix M is — except each "employee" is a pixel, and the two columns are Gx and Gy.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🏗️ Building Matrix M</h2>
+      <p>For an image with N total pixels, we create a matrix M with <strong>N rows and 2 columns</strong>:</p>
+
+      <div class="matrix-visual">
+         Column 1 (Gx)    Column 2 (Gy)
+Row 1  [  G_x(pixel 1)      G_y(pixel 1)  ]   ← top-left pixel
+Row 2  [  G_x(pixel 2)      G_y(pixel 2)  ]   ← next pixel →
+Row 3  [  G_x(pixel 3)      G_y(pixel 3)  ]
+  ⋮           ⋮                   ⋮
+Row N  [  G_x(pixel N)      G_y(pixel N)  ]   ← bottom-right pixel
+
+M ∈ ℝ^(N×2)  ("M is a real-valued matrix of size N by 2")
+      </div>
+
+      <p>For a typical 512×512 image, N = 262,144 — so M has <strong>262,144 rows and 2 columns</strong>. That's a lot of data, but it's organized neatly for the next step.</p>
+
+      <div class="info-box yellow">
+        <div class="info-title">⚡ What Does "Flatten" Mean?</div>
+        In the diagram, the arrow says "Flatten". This means we take the 2D image grid and unroll it into a 1D list of pixels (like reading a book left-to-right, top-to-bottom). Each pixel becomes one row in our matrix. We haven't lost information — we've just reorganized it linearly.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🔢 Concrete Mini Example</h2>
+      <p>Let's say we have a tiny 2×2 image (only 4 pixels). After computing gradients, we get:</p>
+
+      <div class="matrix-visual">
+Pixel positions:    Gx values:    Gy values:
+┌──────┬──────┐    ┌────┬────┐   ┌────┬────┐
+│ (1,1)│ (2,1)│    │  5 │ 12 │   │  3 │  8 │
+├──────┼──────┤    ├────┼────┤   ├────┼────┤
+│ (1,2)│ (2,2)│    │  7 │ 20 │   │  2 │ 15 │
+└──────┴──────┘    └────┴────┘   └────┴────┘
+
+After flattening into Matrix M (4 rows, 2 cols):
+     Gx    Gy
+M = [  5    3  ]   ← pixel (1,1)
+    [ 12    8  ]   ← pixel (2,1)
+    [  7    2  ]   ← pixel (1,2)
+    [ 20   15  ]   ← pixel (2,2)
+      </div>
+
+      <div class="analogy">
+        <div class="analogy-title">📌 Why This Organization Matters</div>
+        By putting every pixel's (Gx, Gy) pair as a row in a table, we've set up the math perfectly for the next step. It's like organizing your data into the right spreadsheet format before running a statistical analysis — the organization itself enables the insight.
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ STEP 4 ════════════════════════════════════════════════════ -->
+  <section class="section" id="step4">
+    <div class="section-header">
+      <h1>🧮 Step 4: Covariance — Finding Relationships</h1>
+      <p>Understanding how horizontal and vertical gradients relate to each other</p>
+    </div>
+
+    <div class="card">
+      <h2>📈 What Is Covariance?</h2>
+      <p>Covariance measures whether two measurements <strong>tend to go up and down together</strong>. If large Gx values tend to appear with large Gy values, they have high positive covariance. If they're unrelated, covariance is near zero.</p>
+
+      <div class="analogy">
+        <div class="analogy-title">🌡️ Height & Weight Analogy</div>
+        In a population, height and weight have positive covariance — taller people tend to weigh more. But height and shoe color have zero covariance — completely unrelated. Covariance tells us the "relationship strength" between two variables. For our gradients: does a pixel with a strong horizontal edge also tend to have a strong vertical edge?
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🔢 The Covariance Matrix C</h2>
+
+      <div class="formula-box">
+        <div class="formula-label">The Formula</div>
+        <strong>C = (1/N) × Mᵀ × M</strong><br><br>
+        Where Mᵀ is M "transposed" (rows and columns swapped)
+      </div>
+
+      <p>The result is a tiny <strong>2×2 matrix</strong> — just four numbers! But those four numbers summarize the entire gradient structure of the image:</p>
+
+      <div class="matrix-visual">
+        Gx       Gy
+C = [ Var(Gx)    Cov(Gx,Gy) ]   ← Gx row
+    [ Cov(Gx,Gy) Var(Gy)    ]   ← Gy row
+
+Where:
+  Var(Gx)    = average squared horizontal gradient (spread of horizontal edges)
+  Var(Gy)    = average squared vertical gradient (spread of vertical edges)
+  Cov(Gx,Gy) = how much horizontal and vertical gradients correlate
+      </div>
+
+      <h3>Reading the Covariance Matrix</h3>
+      <div class="compare-grid">
+        <div class="compare-col real">
+          <div class="col-title">✅ Example: Landscape Photo</div>
+          <div class="compare-item"><div class="dot"></div><div>Lots of horizontal edges (horizon, ground)</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Var(Gy) >> Var(Gx)</div></div>
+          <div class="compare-item"><div class="dot"></div><div>C might look like:<br>[20, 3 / 3, 80]</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Vertically elongated gradient cloud</div></div>
+        </div>
+        <div class="compare-col fake">
+          <div class="col-title">🚨 Example: AI Portrait</div>
+          <div class="compare-item"><div class="dot"></div><div>Gradients spread more uniformly in all directions</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Var(Gx) ≈ Var(Gy) but subtly off</div></div>
+          <div class="compare-item"><div class="dot"></div><div>C might look like:<br>[40, 38 / 38, 41]</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Unnaturally symmetric gradient cloud</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🎯 Why Compute This?</h2>
+      <p>The covariance matrix compresses an entire image's gradient structure into just <strong>3 meaningful numbers</strong> (since the matrix is symmetric). These numbers encode the "personality" of the image's edge patterns.</p>
+
+      <div class="info-box green">
+        <div class="info-title">✅ The Physics Behind It</div>
+        Real photos obey laws of physics: light falls at specific angles, surfaces have natural texture statistics, cameras introduce consistent noise patterns. These physics create specific, predictable covariance structures. AI models, trained on statistics of images, approximate this — but imperfectly. The covariance matrix reveals the difference.
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ STEP 5 ════════════════════════════════════════════════════ -->
+  <section class="section" id="step5">
+    <div class="section-header">
+      <h1>🔭 Step 5: PCA — Finding the Fingerprint</h1>
+      <p>Using Principal Component Analysis to reveal the hidden pattern</p>
+    </div>
+
+    <div class="card">
+      <h2>🎯 What Is PCA?</h2>
+      <p>PCA (Principal Component Analysis) is a technique that <strong>finds the direction of maximum variation</strong> in a dataset. It asks: "If I had to summarize all this data with a single line or axis, which direction would capture the most information?"</p>
+
+      <div class="analogy">
+        <div class="analogy-title">☁️ Shadow Analogy</div>
+        Imagine a 3D cloud of points. PCA finds the angle to shine a light so that the <strong>shadow it casts</strong> is as spread out as possible — capturing maximum information in 2D. Our gradient data is a cloud of (Gx, Gy) points. PCA finds the best "angle" to view this cloud to reveal whether it looks like a "real" or "fake" cloud.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🌌 Visualizing the Gradient Cloud</h2>
+      <p>If we plot all pixels as dots in a Gx-Gy coordinate system (x-axis = horizontal gradient, y-axis = vertical gradient), we get a "cloud" of dots:</p>
+
+      <div class="pca-visual" style="height:260px;">
+        <canvas id="scatterCanvas" width="520" height="220"></canvas>
+      </div>
+
+      <div class="compare-grid" style="margin-top:14px">
+        <div class="compare-col real">
+          <div class="col-title">✅ Real Image Cloud</div>
+          <div class="compare-item"><div class="dot"></div><div>Elongated along a specific axis</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Follows natural lighting direction</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Has heavy tails (extreme values)</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Matches physics-based patterns</div></div>
+        </div>
+        <div class="compare-col fake">
+          <div class="col-title">🚨 AI Fake Cloud</div>
+          <div class="compare-item"><div class="dot"></div><div>More circular / symmetric</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Gradients more uniformly distributed</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Lighter tails (fewer extremes)</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Lacks physical coherence</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🔍 What PCA Reveals</h2>
+      <p>PCA analyzes the covariance matrix C and produces two things:</p>
+      <div class="compare-grid">
+        <div class="compare-col real">
+          <div class="col-title">📐 Eigenvectors</div>
+          <div class="compare-item"><div class="dot"></div><div>The <em>direction</em> of maximum variation (the "principal axis")</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Like the long axis of an ellipse</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Tells us: in which direction do gradients vary most?</div></div>
+        </div>
+        <div class="compare-col fake">
+          <div class="col-title">📊 Eigenvalues</div>
+          <div class="compare-item"><div class="dot"></div><div>The <em>amount</em> of variation along each axis</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Like the length of the ellipse's axes</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Tells us: how much of the variation is explained?</div></div>
+        </div>
+      </div>
+
+      <div class="formula-box" style="margin-top:20px;">
+        <div class="formula-label">PCA Decision Rule</div>
+        <strong>Ratio = λ₁ / (λ₁ + λ₂)</strong><br><br>
+        λ₁ = largest eigenvalue, λ₂ = smallest eigenvalue<br><br>
+        <em>Real images: ratio tends to be high (one direction dominates)<br>
+        Fake images: ratio tends to be closer to 0.5 (more balanced)</em>
+      </div>
+
+      <div class="info-box green">
+        <div class="info-title">🎯 The Key Finding</div>
+        Real photographs show a <strong>dominant gradient direction</strong> tied to the scene's lighting angle and physical structure. AI-generated images tend to spread their gradient energy more evenly in all directions — a signature of the diffusion denoising process that lacks physical anchoring.
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ REAL VS FAKE ══════════════════════════════════════════════ -->
+  <section class="section" id="realvsfake">
+    <div class="section-header">
+      <h1>⚖️ Real vs Fake — The Full Picture</h1>
+      <p>Putting it all together: what makes real and AI images mathematically different</p>
+    </div>
+
+    <div class="card">
+      <h2>🎨 The Jet Fighter Example</h2>
+      <p>Looking at the images in the figure — both show an F-35 fighter jet from similar angles. To the naked eye, they look nearly identical. But the gradient images below reveal dramatic differences:</p>
+
+      <div class="compare-grid">
+        <div class="compare-col real">
+          <div class="col-title">📷 Real Photo Gradient</div>
+          <div class="compare-item"><div class="dot"></div><div>Background sky shows <strong>atmospheric gradient structure</strong> — slight haze patterns, subtle sensor noise</div></div>
+          <div class="compare-item"><div class="dot"></div><div>The aircraft surface has <strong>complex micro-texture</strong> from real metal, paint, and lighting interactions</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Reflections and shadows follow <strong>physically consistent geometry</strong></div></div>
+          <div class="compare-item"><div class="dot"></div><div>The gradient field is <strong>rich and "noisy"</strong> in a natural way</div></div>
+        </div>
+        <div class="compare-col fake">
+          <div class="col-title">🤖 AI Fake Gradient</div>
+          <div class="compare-item"><div class="dot"></div><div>Background sky is <strong>gradient-flat</strong> — almost no texture structure</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Aircraft surface has <strong>smooth, uniform gradient patches</strong> — too perfect</div></div>
+          <div class="compare-item"><div class="dot"></div><div>Reflections and shadows look right visually but <strong>lack physical consistency mathematically</strong></div></div>
+          <div class="compare-item"><div class="dot"></div><div>The gradient field is <strong>cleaner than physics allows</strong></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🔬 Deep Comparison Table</h2>
+      <div class="table-wrap">
+        <table>
+          <tr>
+            <th>Property</th>
+            <th>Real Photo</th>
+            <th>AI Generated</th>
+          </tr>
+          <tr>
+            <td><strong>Gradient richness</strong></td>
+            <td>High — physics creates complex patterns everywhere</td>
+            <td>Lower — AI invents detail only where "needed" visually</td>
+          </tr>
+          <tr>
+            <td><strong>Background texture</strong></td>
+            <td>Present even in "empty" areas (sky, walls)</td>
+            <td>Often artificially smooth in background areas</td>
+          </tr>
+          <tr>
+            <td><strong>Gradient direction</strong></td>
+            <td>Dominated by light source angle — anisotropic</td>
+            <td>More isotropic (uniform in all directions)</td>
+          </tr>
+          <tr>
+            <td><strong>Extreme values</strong></td>
+            <td>Many very strong gradients (specular highlights, sharp shadows)</td>
+            <td>Fewer extremes — distribution is more "bell-shaped"</td>
+          </tr>
+          <tr>
+            <td><strong>PCA eigenvalue ratio</strong></td>
+            <td>Higher (more directional variance)</td>
+            <td>Lower (more balanced variance)</td>
+          </tr>
+          <tr>
+            <td><strong>Noise structure</strong></td>
+            <td>Camera sensor noise creates consistent high-freq patterns</td>
+            <td>Diffusion model creates different "noise texture"</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="callout">
+      <h3>🧠 The Core Insight Restated</h3>
+      <p>Real photos are <em>physically constrained</em> — light behaves consistently, sensors introduce specific noise, optics create predictable blurring. AI images are <em>statistically constrained</em> — they look like the average of millions of real images, but without being anchored to any specific physical reality. The covariance of gradient fields captures this difference beautifully.</p>
+    </div>
+  </section>
+
+  <!-- ═══ WHY ════════════════════════════════════════════════════════ -->
+  <section class="section" id="why">
+    <div class="section-header">
+      <h1>💡 Why Does This Work?</h1>
+      <p>The deep physics and statistics behind the magic</p>
+    </div>
+
+    <div class="card">
+      <h2>🌞 How Cameras Capture Light</h2>
+      <p>A real camera captures light bouncing off physical surfaces. This creates several natural patterns in gradient fields:</p>
+
+      <div class="step-card">
+        <div class="step-number">A</div>
+        <div class="step-subtitle">Physics Effect 1</div>
+        <h2>Lambert's Law — Directional Lighting</h2>
+        <p>When light hits a surface, the brightness depends on the angle between the surface and the light source. This creates <strong>consistent gradient directions</strong> across surfaces lit by the same source. An entire lit wall has gradients pointing in the same direction. This physical law creates strong, directional structure in the covariance matrix.</p>
+      </div>
+
+      <div class="step-card">
+        <div class="step-number">B</div>
+        <div class="step-subtitle">Physics Effect 2</div>
+        <h2>Camera Sensor Noise</h2>
+        <p>Digital camera sensors add a specific type of noise called <strong>photon shot noise</strong> — random variations from quantum mechanics of light. This noise has a precise statistical signature that propagates into the gradient field. It creates a specific "floor" of gradient activity in every image. AI models don't replicate this exactly.</p>
+      </div>
+
+      <div class="step-card">
+        <div class="step-number">C</div>
+        <div class="step-subtitle">Physics Effect 3</div>
+        <h2>Lens Optics — Point Spread Function</h2>
+        <p>Camera lenses create slight blurring due to diffraction and optical aberrations. This blurring has a specific mathematical form that creates <strong>predictable gradient correlations</strong> at the pixel level. A camera-captured edge looks subtly different mathematically from an AI-hallucinated edge, because the optics are physically modeled vs statistically approximated.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🤖 How AI Diffusion Models Work (and Why They Leave Traces)</h2>
+      <p>Modern AI image generators use a process called <strong>diffusion</strong>:</p>
+
+      <div class="matrix-visual">
+How Diffusion Models Generate Images:
+
+Start: Pure random noise (like TV static)
+  ↓  (run denoising step 1)
+Slightly less noisy — vague shapes emerge
+  ↓  (run denoising step 2)
+More structure — color blobs appear
+  ↓  (run 50-1000 more denoising steps)
+Final: Recognizable image
+      </div>
+
+      <p>Each denoising step asks a neural network: "given this slightly noisy image and the text prompt, what should the noise-free version look like?" This process is powerful but leaves distinctive traces:</p>
+
+      <div class="info-box red">
+        <div class="info-title">🚨 Why AI Gradients Are Different</div>
+        The diffusion process operates in "frequency space" — it's very good at reproducing the statistics of pixel brightness in aggregate, but it tends to produce gradients that are more uniformly distributed across directions. The denoising neural network doesn't "know" about light sources, camera optics, or surface physics — it only knows "this is what images look like on the internet."
+      </div>
+
+      <div class="info-box yellow">
+        <div class="info-title">⚡ The High-Frequency Problem</div>
+        Diffusion models also produce characteristic high-frequency patterns in their gradient fields from the iterative denoising process — like a slight "digital shimmer" at the finest scale. This is different from the high-frequency noise a real camera adds. PCA on the gradient covariance captures this difference.
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ APPLICATIONS ══════════════════════════════════════════════ -->
+  <section class="section" id="applications">
+    <div class="section-header">
+      <h1>🚀 Real-World Applications</h1>
+      <p>Where and how this technique is being used</p>
+    </div>
+
+    <div class="card">
+      <h2>🌍 Who Needs This?</h2>
+      <div class="tags">
+        <span class="tag">📰 Journalism</span>
+        <span class="tag">🏛️ Law Enforcement</span>
+        <span class="tag">🏦 Financial Fraud Prevention</span>
+        <span class="tag">📱 Social Media Platforms</span>
+        <span class="tag">🔬 Academic Research</span>
+        <span class="tag">🎨 NFT Authentication</span>
+        <span class="tag">⚖️ Legal Evidence</span>
+        <span class="tag">🛡️ National Security</span>
+      </div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-number">1</div>
+      <div class="step-subtitle">Application</div>
+      <h2>📰 News Verification</h2>
+      <p>Journalists and fact-checkers can run this analysis on photos submitted as "breaking news" to quickly flag potential AI-generated images before publication. The lightweight nature of the algorithm means it can run on millions of images daily without heavy computational costs.</p>
+      <div class="analogy">
+        <div class="analogy-title">📋 Example</div>
+        A newsroom receives "leaked photos" of a political meeting. Running gradient field PCA on the images takes milliseconds and flags two of the five images as showing AI-fake signatures — matching the pattern of known diffusion model outputs.
+      </div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-number">2</div>
+      <div class="step-subtitle">Application</div>
+      <h2>🏦 Identity & Document Fraud</h2>
+      <p>Banks and KYC (Know Your Customer) systems can detect AI-generated ID photos and profile pictures. Someone opening a bank account with an AI-generated face photo would be flagged. The gradient analysis can work alongside traditional facial recognition to double-check authenticity.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-number">3</div>
+      <div class="step-subtitle">Application</div>
+      <h2>📱 Social Media Integrity</h2>
+      <p>Platforms can automatically label AI-generated images before they spread virally. Unlike metadata-based approaches (which can be faked or stripped), gradient analysis works on the pixel content itself — making it much harder to bypass.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-number">4</div>
+      <div class="step-subtitle">Application</div>
+      <h2>⚖️ Legal Evidence Authentication</h2>
+      <p>Courts need to verify that photographic evidence hasn't been synthetically generated. Expert witnesses can present gradient field PCA analysis as scientifically interpretable evidence — explaining each step in plain terms, unlike black-box AI classifiers whose reasoning is opaque.</p>
+    </div>
+
+    <div class="callout">
+      <h3>💪 Key Advantage Over Other Methods</h3>
+      <p>This technique is <strong>interpretable</strong> — every step can be explained in plain language. A judge, journalist, or policy maker can understand WHY the algorithm says an image is fake. This is crucial for applications where "the AI said so" isn't good enough. The math is transparent, reproducible, and doesn't require trusting a neural network's judgment.</p>
+    </div>
+  </section>
+
+  <!-- ═══ LIMITATIONS ════════════════════════════════════════════════ -->
+  <section class="section" id="limits">
+    <div class="section-header">
+      <h1>⚠️ Limitations & Honest Caveats</h1>
+      <p>What this technique can and can't do</p>
+    </div>
+
+    <div class="card">
+      <h2>🔍 No Tool Is Perfect</h2>
+      <p>The gradient field PCA approach is elegant and lightweight, but it has real limitations that are important to understand — especially before using it in high-stakes contexts.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-number">!</div>
+      <div class="step-subtitle">Limitation 1</div>
+      <h2>🖼️ JPEG Compression Artifacts</h2>
+      <p>When images are saved as JPEG (which most internet images are), the compression algorithm adds its own pattern to the gradient field. This can interfere with the analysis, potentially masking the AI fingerprint or creating false positives in heavily compressed real photos. The technique works best on lightly compressed or lossless images.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-number">!</div>
+      <div class="step-subtitle">Limitation 2</div>
+      <h2>🎨 Image Processing Transforms</h2>
+      <p>If an AI-generated image is put through heavy post-processing — sharpening, blurring, contrast adjustment, adding noise — the gradient structure can be altered enough to fool the analysis. A sophisticated adversary who knows about this detection method could potentially apply countermeasures.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-number">!</div>
+      <div class="step-subtitle">Limitation 3</div>
+      <h2>🔮 Evolution of AI Models</h2>
+      <p>As AI models improve, they may better replicate the physical statistics of real photos. Future diffusion models might be specifically trained to match the gradient covariance distribution of real photographs — essentially "learning" to pass this test. Detection and generation are an ongoing arms race.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-number">!</div>
+      <div class="step-subtitle">Limitation 4</div>
+      <h2>📸 Special Real Images May Fail</h2>
+      <p>Some real photos naturally have unusual gradient structures — medical X-rays, satellite imagery, heavily filtered artistic photos, night photography — and might score as "suspicious" even though they're genuine. The method is tuned for typical photographic content.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-number">!</div>
+      <div class="step-subtitle">Limitation 5</div>
+      <h2>🌐 Doesn't Work on All AI Types</h2>
+      <p>This analysis is best at detecting images from <strong>diffusion models</strong> (Stable Diffusion, DALL·E, Midjourney). Older-style GAN (Generative Adversarial Network) images or 3D rendering tools leave different gradient signatures, requiring recalibration of what "fake" looks like.</p>
+    </div>
+
+    <div class="info-box yellow">
+      <div class="info-title">🧠 The Takeaway</div>
+      Use gradient field PCA as <strong>one tool in a detection toolkit</strong>, not the only one. Combined with metadata inspection, AI-specific artifact detectors, and contextual verification (does this image make sense? Is the source credible?), it forms a powerful layer of defense. No single method is foolproof, but together they raise the bar significantly.
+    </div>
+
+    <div class="card">
+      <h2>🛡️ The Bigger Picture</h2>
+      <p>The real power of this technique isn't just its accuracy — it's its <strong>transparency</strong>. In a world flooded with black-box AI systems, a method that a curious non-technical person can understand, step by step, is enormously valuable. Science that can be explained is science that can be trusted.</p>
+      <p>Whether you're a journalist, a policy maker, or just someone who wants to understand how the digital world works — now you know how math can act as a lie detector for images.</p>
+    </div>
+  </section>
+
+</main>
+
+<!-- Back to top -->
+<div class="back-to-top" id="backToTop" onclick="scrollToTop()">↑</div>
+
+<script>
+// ─── NAVIGATION ────────────────────────────────────────────────────
+function showSection(id, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (el) el.classList.add('active');
+  document.getElementById('main-content').scrollTop = 0;
+  window.scrollTo(0, 0);
+  drawScatter();
+}
+
+// ─── THEME TOGGLE ──────────────────────────────────────────────────
+function toggleTheme() {
+  const html = document.documentElement;
+  html.setAttribute('data-theme', html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  setTimeout(drawScatter, 50);
+}
+
+// ─── READING PROGRESS BAR ─────────────────────────────────────────
+window.addEventListener('scroll', () => {
+  const scrollTop = window.scrollY;
+  const docHeight = document.body.scrollHeight - window.innerHeight;
+  const progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  document.getElementById('progress-bar').style.width = progress + '%';
+
+  const btn = document.getElementById('backToTop');
+  if (scrollTop > 300) btn.classList.add('visible');
+  else btn.classList.remove('visible');
+});
+
+function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
+
+// ─── SCATTER PLOT (PCA VISUALIZATION) ────────────────────────────
+function drawScatter() {
+  const canvas = document.getElementById('scatterCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+  canvas.width = Math.min(520, canvas.parentElement.offsetWidth - 48);
+  canvas.height = 210;
+  const W = canvas.width, H = canvas.height;
+  const cx = W / 2, cy = H / 2;
+  const scale = Math.min(W, H) * 0.38;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = isDark ? '#1e2240' : '#f7f8fc';
+  ctx.roundRect(0, 0, W, H, 10);
+  ctx.fill();
+
+  // Grid
+  ctx.strokeStyle = isDark ? '#2e3250' : '#e2e6f0';
+  ctx.lineWidth = 1;
+  for (let i = -3; i <= 3; i++) {
+    ctx.beginPath();
+    ctx.moveTo(cx + i * scale / 3, 0);
+    ctx.lineTo(cx + i * scale / 3, H);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, cy + i * scale / 3);
+    ctx.lineTo(W, cy + i * scale / 3);
+    ctx.stroke();
+  }
+
+  // Axes
+  ctx.strokeStyle = isDark ? '#6b7280' : '#9ca3af';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(10, cy); ctx.lineTo(W - 10, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, 10); ctx.lineTo(cx, H - 10); ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = isDark ? '#8891b4' : '#6b7280';
+  ctx.font = '11px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText('Gx (Horizontal Gradient)', W / 2, H - 4);
+  ctx.save(); ctx.translate(10, H / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillText('Gy (Vertical Gradient)', 0, 0); ctx.restore();
+
+  // Seed-based pseudo-random
+  function seededRand(seed) {
+    let x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+  }
+
+  // REAL: elongated ellipse (anisotropic)
+  const realLegendX = W - 100, realLegendY = 20;
+  ctx.fillStyle = 'rgba(67,217,173,0.85)';
+  for (let i = 0; i < 160; i++) {
+    const u = seededRand(i * 3.7 + 1) * 2 - 1;
+    const v = seededRand(i * 3.7 + 2) * 2 - 1;
+    const rx = u * 0.85 + v * 0.15;
+    const ry = u * 0.15 + v * 0.25;
+    const px = cx + rx * scale * 0.92;
+    const py = cy + ry * scale * 0.92;
+    if (px > 8 && px < W - 8 && py > 8 && py < H - 8) {
+      ctx.beginPath();
+      ctx.arc(px, py, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // FAKE: circular (isotropic)
+  ctx.fillStyle = 'rgba(255,101,132,0.8)';
+  for (let i = 0; i < 160; i++) {
+    const angle = seededRand(i * 7.3 + 100) * Math.PI * 2;
+    const r = seededRand(i * 7.3 + 101) * 0.42;
+    const rx = Math.cos(angle) * r;
+    const ry = Math.sin(angle) * r;
+    const px = cx + rx * scale + 45;
+    const py = cy + ry * scale + 10;
+    if (px > 8 && px < W - 8 && py > 8 && py < H - 8) {
+      ctx.beginPath();
+      ctx.arc(px, py, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // PCA arrow for real
+  ctx.strokeStyle = '#43d9ad';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(cx - scale * 0.6, cy - scale * 0.1);
+  ctx.lineTo(cx + scale * 0.6, cy + scale * 0.08);
+  ctx.stroke();
+
+  // PCA arrow for fake
+  ctx.strokeStyle = '#ff6584';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 3]);
+  ctx.beginPath();
+  ctx.moveTo(cx + 45 - scale * 0.3, cy + 10 - scale * 0.3);
+  ctx.lineTo(cx + 45 + scale * 0.3, cy + 10 + scale * 0.3);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Legend
+  ctx.fillStyle = 'rgba(67,217,173,0.9)';
+  ctx.beginPath(); ctx.arc(W - 110, 22, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = isDark ? '#edf0ff' : '#1a1d2e';
+  ctx.font = '11px system-ui'; ctx.textAlign = 'left';
+  ctx.fillText('Real (elongated)', W - 100, 26);
+
+  ctx.fillStyle = 'rgba(255,101,132,0.9)';
+  ctx.beginPath(); ctx.arc(W - 110, 40, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = isDark ? '#edf0ff' : '#1a1d2e';
+  ctx.fillText('AI Fake (circular)', W - 100, 44);
+}
+
+// Init on load
+window.addEventListener('load', drawScatter);
+window.addEventListener('resize', drawScatter);
+</script>
+</body>
+</html>
