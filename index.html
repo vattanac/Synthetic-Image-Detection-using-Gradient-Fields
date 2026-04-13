@@ -719,6 +719,11 @@
     tr:last-child td { border-bottom: none; }
     tr:hover td { background: var(--surface2); }
 
+    @keyframes pulse {
+      0%,100% { opacity:.5; transform:scale(1); }
+      50%      { opacity:1; transform:scale(1.15); }
+    }
+
     /* reading progress bar */
     #progress-bar {
       position: fixed; top: 0; left: var(--sidebar-w); right: 0;
@@ -817,11 +822,20 @@
     <span class="nav-badge">NEW</span>
   </a>
 
+  <div class="nav-section">Credits</div>
+  <a class="nav-item" onclick="showSection('references', this)">
+    <span class="nav-icon">📚</span><span>References</span>
+  </a>
+
   <div class="sidebar-footer">
     <div class="theme-toggle" onclick="toggleTheme()">
       <span>🌙</span>
       <div class="toggle-pill"></div>
       <span>Dark</span>
+    </div>
+    <div style="margin-top:14px; text-align:center; font-size:11px; color:var(--text-muted); line-height:1.7;">
+      <div style="font-weight:700; color:var(--text); font-size:12px;">© 2026 Sim Vattanac</div>
+      <a href="mailto:vattanacsim99@gmail.com" style="color:var(--accent); text-decoration:none; font-size:10.5px; word-break:break-all;">vattanacsim99@gmail.com</a>
     </div>
   </div>
 </aside>
@@ -1677,159 +1691,257 @@ Final: Recognizable image
       <p>A complete step-by-step walkthrough — from raw pixels to a real/fake verdict</p>
     </div>
 
+    <!-- ── Diagram 0: Our Test Image ─────────────────────────────── -->
     <div class="card">
       <h2>🎯 Our Tiny Test Image</h2>
-      <p>Let's work through a miniature 3×3 pixel image completely by hand. Real images are millions of pixels, but the math is identical — just repeated many more times.</p>
-      <div class="matrix-visual">
-Our 3×3 image, each cell = (R, G, B):
-
-Position → col 1      col 2      col 3
-Row 1:    (200, 80, 40) (180, 75, 38) (100, 50, 20)
-Row 2:    (210, 85, 42) (190, 80, 39) (105, 52, 21)
-Row 3:    (190, 78, 39) (170, 72, 36)  (95, 48, 19)
+      <p>Let's work through a miniature <strong>3×3 pixel image</strong> completely by hand. Real images are millions of pixels, but the math is identical — just repeated more times. Hover any pixel to inspect its RGB values.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;justify-content:center;margin-top:20px;">
+        <!-- Colored pixel grid -->
+        <div>
+          <div style="text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:.08em;margin-bottom:10px;">Original Color Image</div>
+          <div id="pixelGrid" style="display:grid;grid-template-columns:repeat(3,80px);gap:4px;"></div>
+        </div>
+        <!-- Tooltip -->
+        <div id="pixelInfo" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:12px;padding:18px 22px;min-width:200px;font-size:13px;line-height:2;transition:all .3s;">
+          <div style="font-weight:700;color:var(--accent);margin-bottom:6px;">👆 Hover a pixel</div>
+          <div id="pixelDetail" style="color:var(--text-muted);">Click or hover any pixel to see its RGB values and position.</div>
+        </div>
       </div>
-      <p>This looks like a sunlit surface with a dark region on the right — brightness decreasing left to right.</p>
+      <p style="margin-top:16px;font-size:13.5px;color:var(--text-muted);text-align:center;">Brightness decreases left→right (warm orange left, darker brown right).</p>
     </div>
 
+    <!-- ── Diagram 1: Luminance ───────────────────────────────────── -->
     <div class="step-card">
       <div class="step-number">1</div>
       <div class="step-subtitle">Apply Luminance Formula</div>
       <h2>🎨 RGB → Brightness Numbers</h2>
-      <p>Formula: <strong>L = 0.2126×R + 0.7152×G + 0.0722×B</strong></p>
-      <div class="matrix-visual">
-Pixel (1,1): L = 0.2126×200 + 0.7152×80  + 0.0722×40
-               = 42.52      + 57.22       + 2.89
-               = 102.6
+      <p>Formula: <strong>L = 0.2126×R + 0.7152×G + 0.0722×B</strong> — watch the three colour bars combine into one luminance value for each pixel.</p>
 
-Pixel (1,2): L = 0.2126×180 + 0.7152×75  + 0.0722×38
-               = 38.27      + 53.64       + 2.74
-               = 94.6
-
-Pixel (1,3): L = 0.2126×100 + 0.7152×50  + 0.0722×20
-               = 21.26      + 35.76       + 1.44
-               = 58.5
-
-Full Luminance Grid (L values):
-┌────────┬────────┬────────┐
-│ 102.6  │  94.6  │  58.5  │  ← Row 1 (bright left, dark right)
-├────────┼────────┼────────┤
-│ 108.1  │  99.5  │  61.2  │  ← Row 2
-├────────┼────────┼────────┤
-│  97.4  │  89.8  │  55.9  │  ← Row 3
-└────────┴────────┴────────┘
+      <!-- Animated weight bars -->
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:22px;margin:16px 0;">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:14px;">Sensitivity Weights (how much each colour counts)</div>
+        <div style="display:flex;flex-direction:column;gap:10px;" id="weightBars">
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-bottom:4px;"><span style="color:#e74c3c;">🔴 Red</span><span style="color:#e74c3c;">21.26%</span></div>
+            <div style="background:var(--border);border-radius:20px;height:14px;overflow:hidden;"><div class="anim-bar" style="width:0%;background:linear-gradient(90deg,#e74c3c,#c0392b);height:100%;border-radius:20px;transition:width 1.2s cubic-bezier(.4,0,.2,1);" data-target="21.26"></div></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-bottom:4px;"><span style="color:#27ae60;">🟢 Green</span><span style="color:#27ae60;">71.52%</span></div>
+            <div style="background:var(--border);border-radius:20px;height:14px;overflow:hidden;"><div class="anim-bar" style="width:0%;background:linear-gradient(90deg,#27ae60,#1e8449);height:100%;border-radius:20px;transition:width 1.6s cubic-bezier(.4,0,.2,1);" data-target="71.52"></div></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-bottom:4px;"><span style="color:#2980b9;">🔵 Blue</span><span style="color:#2980b9;">7.22%</span></div>
+            <div style="background:var(--border);border-radius:20px;height:14px;overflow:hidden;"><div class="anim-bar" style="width:0%;background:linear-gradient(90deg,#2980b9,#1a5276);height:100%;border-radius:20px;transition:width 0.8s cubic-bezier(.4,0,.2,1);" data-target="7.22"></div></div>
+          </div>
+        </div>
       </div>
+
+      <!-- Before/After grids -->
+      <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:center;justify-content:center;margin-top:16px;">
+        <div style="text-align:center;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:.08em;margin-bottom:8px;">Color Image</div>
+          <div id="lumColorGrid" style="display:grid;grid-template-columns:repeat(3,72px);gap:3px;"></div>
+        </div>
+        <div style="font-size:28px;color:var(--accent);animation:pulse 1.5s infinite;">→</div>
+        <div style="text-align:center;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:.08em;margin-bottom:8px;">Luminance Map</div>
+          <div id="lumGrayGrid" style="display:grid;grid-template-columns:repeat(3,72px);gap:3px;"></div>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;font-size:12px;min-width:160px;">
+          <div style="font-weight:700;color:var(--accent);margin-bottom:8px;">L Values:</div>
+          <div id="lumValues" style="font-family:monospace;line-height:1.9;color:var(--text);"></div>
+        </div>
+      </div>
+      <p style="margin-top:14px;font-size:13.5px;">The luminance grid shows brightness values: <strong>102.6 → 94.6 → 58.5</strong> across row 1 — a clear drop from left to right.</p>
     </div>
 
+    <!-- ── Diagram 2: Gradients ───────────────────────────────────── -->
     <div class="step-card">
       <div class="step-number">2</div>
       <div class="step-subtitle">Compute Gradients</div>
       <h2>📐 How Fast Does Brightness Change?</h2>
-      <p>Using the simple difference approximation. For border pixels we use one-sided differences.</p>
-      <div class="matrix-visual">
-Gx (horizontal) at pixel (row1, col2):
-  = L(row1, col3) − L(row1, col1)
-  = 58.5 − 102.6
-  = −44.1   ← strong negative: brightness drops sharply going right
+      <p>For each pixel we compute <strong>Gx</strong> (horizontal change) and <strong>Gy</strong> (vertical change). Arrows show the gradient direction and magnitude at each pixel.</p>
 
-Gy (vertical) at pixel (row2, col1):
-  = L(row3, col1) − L(row1, col1)
-  = 97.4 − 102.6
-  = −5.2    ← small: brightness barely changes going down
-
-Full Gx Grid:               Full Gy Grid:
-┌───────┬───────┬───────┐   ┌───────┬───────┬───────┐
-│ -8.0  │ -44.1 │ -36.1 │   │  5.5  │  4.9  │  2.7  │
-├───────┼───────┼───────┤   ├───────┼───────┼───────┤
-│ -8.2  │ -46.4 │ -38.3 │   │ -5.2  │ -4.8  │ -2.6  │
-├───────┼───────┼───────┤   ├───────┼───────┼───────┤
-│ -7.6  │ -41.5 │ -33.9 │   │ -5.2  │ -4.8  │ -2.6  │
-└───────┴───────┴───────┘   └───────┴───────┴───────┘
-
-Notice: Gx values are large & negative (strong horizontal drop in brightness)
-        Gy values are small (little vertical change — uniform rows)
+      <div style="display:flex;flex-wrap:wrap;gap:24px;justify-content:center;margin:20px 0;">
+        <!-- Gx grid -->
+        <div style="text-align:center;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:.08em;margin-bottom:8px;">Gx — Horizontal Gradient</div>
+          <canvas id="gxCanvas" width="240" height="240" style="border-radius:10px;border:1px solid var(--border);"></canvas>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Red = large negative (sharp drop →)</div>
+        </div>
+        <!-- Gy grid -->
+        <div style="text-align:center;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:.08em;margin-bottom:8px;">Gy — Vertical Gradient</div>
+          <canvas id="gyCanvas" width="240" height="240" style="border-radius:10px;border:1px solid var(--border);"></canvas>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Near-grey = small vertical change</div>
+        </div>
+        <!-- Vector field -->
+        <div style="text-align:center;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:.08em;margin-bottom:8px;">Gradient Vector Field</div>
+          <canvas id="vectorCanvas" width="240" height="240" style="border-radius:10px;border:1px solid var(--border);"></canvas>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Arrows show direction & strength</div>
+        </div>
+      </div>
+      <div class="info-box yellow">
+        <div class="info-title">⚡ Key Observation</div>
+        Gx values (−8 to −46) are <strong>much larger</strong> than Gy values (−5 to +5). Almost all gradient energy points <em>horizontally</em> — the image has a strong left-to-right brightness gradient, just like a real surface lit from the left.
       </div>
     </div>
 
+    <!-- ── Diagram 3: Matrix M ────────────────────────────────────── -->
     <div class="step-card">
       <div class="step-number">3</div>
       <div class="step-subtitle">Build Matrix M</div>
       <h2>📊 Flatten All Pixels Into a Table</h2>
-      <p>Reading pixels left-to-right, top-to-bottom (9 pixels → 9 rows):</p>
-      <div class="matrix-visual">
-     Gx      Gy
-M = [  -8.0    5.5  ]  ← pixel (r1,c1)
-    [ -44.1    4.9  ]  ← pixel (r1,c2)
-    [ -36.1    2.7  ]  ← pixel (r1,c3)
-    [  -8.2   -5.2  ]  ← pixel (r2,c1)
-    [ -46.4   -4.8  ]  ← pixel (r2,c2)
-    [ -38.3   -2.6  ]  ← pixel (r2,c3)
-    [  -7.6   -5.2  ]  ← pixel (r3,c1)
-    [ -41.5   -4.8  ]  ← pixel (r3,c2)
-    [ -33.9   -2.6  ]  ← pixel (r3,c3)
+      <p>Watch each pixel get "unrolled" into a row of Matrix M — left-to-right, top-to-bottom.</p>
 
-M ∈ ℝ^(9×2)    (9 rows = 9 pixels, 2 cols = Gx and Gy)
+      <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;justify-content:center;margin:20px 0;">
+        <!-- Source pixel grid with highlight -->
+        <div style="text-align:center;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:.08em;margin-bottom:8px;">Source Pixels</div>
+          <div id="flattenGrid" style="display:grid;grid-template-columns:repeat(3,72px);gap:3px;"></div>
+          <div style="margin-top:10px;">
+            <button onclick="startFlattenAnim()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer;transition:opacity .2s;">▶ Animate Flatten</button>
+          </div>
+        </div>
+        <!-- Animated arrow -->
+        <div style="font-size:28px;color:var(--accent);padding-top:40px;" id="flatArrow" style="opacity:0;">→</div>
+        <!-- Matrix M display -->
+        <div style="text-align:center;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:.08em;margin-bottom:8px;">Matrix M (9×2)</div>
+          <div id="matrixM" style="font-family:monospace;font-size:12px;background:var(--code-bg);border:1px solid var(--border);border-radius:10px;padding:14px;min-width:210px;line-height:2;"></div>
+        </div>
       </div>
     </div>
 
+    <!-- ── Diagram 4: Covariance ──────────────────────────────────── -->
     <div class="step-card">
       <div class="step-number">4</div>
       <div class="step-subtitle">Compute Covariance C = (1/N) MᵀM</div>
       <h2>🧮 Find the Statistical Relationship</h2>
-      <div class="matrix-visual">
-Step 4a: Compute Mᵀ × M  (2×9 times 9×2 = 2×2 result)
+      <p>The covariance matrix summarises all 9 gradient pairs into 3 key numbers. Watch the bars fill to show how Var(Gx) dwarfs Var(Gy).</p>
 
-  Σ Gx²   = 8² + 44.1² + 36.1² + 8.2² + 46.4² + 38.3² + 7.6² + 41.5² + 33.9²
-           = 64 + 1945 + 1303 + 67 + 2153 + 1467 + 58 + 1722 + 1149
-           ≈ 9928
+      <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;justify-content:center;margin:20px 0;">
+        <!-- Bar chart -->
+        <div style="flex:1;min-width:220px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:.08em;margin-bottom:14px;">Variance Comparison</div>
+          <div style="display:flex;flex-direction:column;gap:14px;" id="covBars">
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:5px;"><span style="color:#6c63ff;">Var(Gx)</span><span style="color:#6c63ff;">1103.1</span></div>
+              <div style="background:var(--border);border-radius:6px;height:28px;overflow:hidden;position:relative;">
+                <div class="cov-bar" style="width:0%;background:linear-gradient(90deg,#6c63ff,#a78bfa);height:100%;border-radius:6px;transition:width 1.8s cubic-bezier(.4,0,.2,1);" data-target="100"></div>
+                <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:700;color:#fff;opacity:0;" class="bar-label">100%</span>
+              </div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:5px;"><span style="color:#43d9ad;">Var(Gy)</span><span style="color:#43d9ad;">19.5</span></div>
+              <div style="background:var(--border);border-radius:6px;height:28px;overflow:hidden;position:relative;">
+                <div class="cov-bar" style="width:0%;background:linear-gradient(90deg,#43d9ad,#1e9e7e);height:100%;border-radius:6px;transition:width 0.5s cubic-bezier(.4,0,.2,1);" data-target="1.77"></div>
+                <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:700;color:#fff;opacity:0;" class="bar-label">1.8%</span>
+              </div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:5px;"><span style="color:#f6c90e;">|Cov(Gx,Gy)|</span><span style="color:#f6c90e;">2.8</span></div>
+              <div style="background:var(--border);border-radius:6px;height:28px;overflow:hidden;position:relative;">
+                <div class="cov-bar" style="width:0%;background:linear-gradient(90deg,#f6c90e,#d4a400);height:100%;border-radius:6px;transition:width 0.3s cubic-bezier(.4,0,.2,1);" data-target="0.25"></div>
+                <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:700;color:#333;opacity:0;" class="bar-label">0.25%</span>
+              </div>
+            </div>
+          </div>
+          <p style="margin-top:12px;font-size:12.5px;color:var(--text-muted);">Var(Gx) is <strong style="color:var(--accent);">56× larger</strong> than Var(Gy)!</p>
+        </div>
 
-  Σ Gy²   = 5.5² + 4.9² + 2.7² + 5.2² + 4.8² + 2.6² + 5.2² + 4.8² + 2.6²
-           ≈ 30.25 + 24 + 7.3 + 27 + 23 + 6.8 + 27 + 23 + 6.8
-           ≈ 175.2
-
-  Σ Gx×Gy = (−8.0×5.5) + (−44.1×4.9) + ... ≈ −25.5 (near zero)
-
-Step 4b: Divide by N = 9
-
-C = (1/9) × [9928    −25.5]  =  [1103.1   −2.8]
-             [−25.5   175.2]     [−2.8     19.5]
-
-Reading C:
-  Var(Gx)    = 1103.1  ← HUGE: lots of horizontal edge variation
-  Var(Gy)    =   19.5  ← tiny: little vertical edge variation
-  Cov(Gx,Gy) =   −2.8  ← near zero: Gx and Gy barely correlate
+        <!-- 2×2 matrix display -->
+        <div style="text-align:center;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:.08em;margin-bottom:12px;">Covariance Matrix C</div>
+          <div style="display:inline-grid;grid-template-columns:1fr 1fr;gap:4px;">
+            <div class="cmat-cell" style="background:rgba(108,99,255,.15);border:2px solid var(--accent);border-radius:8px;padding:14px 20px;text-align:center;">
+              <div style="font-size:10px;color:var(--accent);font-weight:700;">Var(Gx)</div>
+              <div style="font-size:18px;font-weight:800;color:var(--accent);" id="cmat11">0</div>
+            </div>
+            <div class="cmat-cell" style="background:rgba(246,201,14,.1);border:2px solid #d4a400;border-radius:8px;padding:14px 20px;text-align:center;">
+              <div style="font-size:10px;color:#b08a00;font-weight:700;">Cov</div>
+              <div style="font-size:18px;font-weight:800;color:#b08a00;" id="cmat12">0</div>
+            </div>
+            <div class="cmat-cell" style="background:rgba(246,201,14,.1);border:2px solid #d4a400;border-radius:8px;padding:14px 20px;text-align:center;">
+              <div style="font-size:10px;color:#b08a00;font-weight:700;">Cov</div>
+              <div style="font-size:18px;font-weight:800;color:#b08a00;" id="cmat21">0</div>
+            </div>
+            <div class="cmat-cell" style="background:rgba(67,217,173,.12);border:2px solid #43d9ad;border-radius:8px;padding:14px 20px;text-align:center;">
+              <div style="font-size:10px;color:#1e9e7e;font-weight:700;">Var(Gy)</div>
+              <div style="font-size:18px;font-weight:800;color:#1e9e7e;" id="cmat22">0</div>
+            </div>
+          </div>
+          <button onclick="animateCovariance()" style="margin-top:14px;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer;">▶ Animate</button>
+        </div>
       </div>
       <div class="info-box green">
         <div class="info-title">✅ What This Tells Us</div>
-        The covariance matrix has Var(Gx) 56× larger than Var(Gy). This means gradients are overwhelmingly horizontal — exactly what you'd expect from a surface lit from the side. This strong directional preference is a hallmark of real, physically-lit scenes.
+        The covariance matrix has Var(Gx) <strong>56× larger</strong> than Var(Gy). Gradients are overwhelmingly horizontal — a hallmark of real, physically-lit scenes.
       </div>
     </div>
 
+    <!-- ── Diagram 5: PCA Verdict ─────────────────────────────────── -->
     <div class="step-card">
       <div class="step-number">5</div>
       <div class="step-subtitle">Apply PCA — Find the Dominant Direction</div>
-      <h2>🔭 Compute Eigenvalues</h2>
-      <div class="matrix-visual">
-Our covariance matrix:
-C = [1103.1   −2.8]
-    [  −2.8   19.5]
+      <h2>🔭 Compute the PCA Ratio & Verdict</h2>
+      <p>PCA turns the covariance matrix into a single score. Watch the gauge needle sweep to the verdict.</p>
 
-Eigenvalues (the "stretch" in each direction):
-  λ₁ ≈ 1103.1  (dominant direction: horizontal gradients)
-  λ₂ ≈   19.5  (minor direction: vertical gradients)
+      <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start;justify-content:center;margin:24px 0;">
 
-PCA Ratio = λ₁ / (λ₁ + λ₂)
-           = 1103.1 / (1103.1 + 19.5)
-           = 1103.1 / 1122.6
-           ≈ 0.983   ← 98.3% of gradient variation in ONE direction!
+        <!-- Gauge -->
+        <div style="text-align:center;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:.08em;margin-bottom:10px;">PCA Ratio Gauge</div>
+          <canvas id="gaugeCanvas" width="280" height="170"></canvas>
+          <div id="gaugeLabel" style="font-size:22px;font-weight:800;margin-top:8px;color:var(--accent);">0.000</div>
+          <div id="gaugeVerdict" style="font-size:13px;font-weight:600;color:var(--text-muted);">calculating…</div>
+          <button onclick="animateGauge()" style="margin-top:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer;">▶ Run PCA</button>
+        </div>
 
-VERDICT COMPARISON:
-  Our image ratio:  0.983  →  strongly directional  →  LIKELY REAL ✅
-  Typical AI fake:  0.52   →  nearly equal in all directions  →  FAKE 🚨
-  Decision boundary: ~0.70 (values above = real, below = suspicious)
+        <!-- Side comparison -->
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:.08em;margin-bottom:12px;">Verdict Comparison</div>
+          <div id="verdictBars" style="display:flex;flex-direction:column;gap:14px;">
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;margin-bottom:5px;">
+                <span>📷 Our Image</span><span style="color:#43d9ad;">0.983</span>
+              </div>
+              <div style="background:var(--border);border-radius:6px;height:22px;overflow:hidden;">
+                <div id="vbar1" style="width:0%;background:linear-gradient(90deg,#43d9ad,#27ae60);height:100%;border-radius:6px;transition:width 1.5s .3s cubic-bezier(.4,0,.2,1);"></div>
+              </div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;margin-bottom:5px;">
+                <span>⚠️ Suspicious</span><span style="color:#f6c90e;">0.70</span>
+              </div>
+              <div style="background:var(--border);border-radius:6px;height:22px;overflow:hidden;">
+                <div style="width:70%;background:linear-gradient(90deg,#f6c90e,#d4a400);height:100%;border-radius:6px;"></div>
+              </div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;margin-bottom:5px;">
+                <span>🤖 AI Fake</span><span style="color:#ff6584;">0.52</span>
+              </div>
+              <div style="background:var(--border);border-radius:6px;height:22px;overflow:hidden;">
+                <div style="width:52%;background:linear-gradient(90deg,#ff6584,#c0325e);height:100%;border-radius:6px;"></div>
+              </div>
+            </div>
+          </div>
+          <!-- Eigenvalue breakdown -->
+          <div style="margin-top:20px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;font-size:12px;line-height:2;font-family:monospace;">
+            <div style="font-family:sans-serif;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Eigenvalue Breakdown</div>
+            λ₁ = <strong style="color:var(--accent);">1103.1</strong> (dominant)<br>
+            λ₂ = <strong style="color:#43d9ad;">19.5</strong> (minor)<br>
+            Ratio = 1103.1 / 1122.6<br>
+            = <strong style="color:var(--accent);">0.983 ✅ REAL</strong>
+          </div>
+        </div>
       </div>
+
       <div class="analogy">
         <div class="analogy-title">🎯 The Final Verdict</div>
-        A ratio of 0.98 means 98% of all gradient variation in this image points in one dominant direction — a clear physical signature of real light bouncing off a real surface. An AI fake would score closer to 0.50, showing gradients spread in all directions with no physical anchor. That's the separation!
+        A ratio of <strong>0.983</strong> means 98.3% of all gradient variation points in ONE direction — a clear physical signature of real light on a real surface. An AI fake scores ~0.52 — gradients scatter equally in all directions with no physical anchor.
       </div>
     </div>
   </section>
@@ -2426,10 +2538,322 @@ def extract_all_features(image_path):
     </div>
   </section>
 
+  <!-- ═══ REFERENCES ═════════════════════════════════════════════════ -->
+  <section class="section" id="references">
+    <div class="section-header">
+      <h1>📚 References & Further Reading</h1>
+      <p>Sources, papers, tools, and resources behind everything in this guide</p>
+    </div>
+
+    <div class="card">
+      <h2>🎓 Core Academic Papers</h2>
+      <p>These are the foundational research papers that underpin the gradient field PCA detection method and related forensic techniques.</p>
+      <div class="table-wrap">
+        <table>
+          <tr>
+            <th>#</th>
+            <th>Paper / Source</th>
+            <th>Authors</th>
+            <th>Year</th>
+            <th>Link</th>
+          </tr>
+          <tr>
+            <td><strong>[1]</strong></td>
+            <td>Detecting and Simulating Artifacts in GAN Fake Images</td>
+            <td>Zhang et al.</td>
+            <td>2019</td>
+            <td><a href="https://arxiv.org/abs/1907.06515" target="_blank" style="color:var(--accent);">arxiv.org/abs/1907.06515</a></td>
+          </tr>
+          <tr>
+            <td><strong>[2]</strong></td>
+            <td>CNN-generated images are surprisingly easy to spot... for now</td>
+            <td>Wang et al.</td>
+            <td>2020</td>
+            <td><a href="https://arxiv.org/abs/1912.11035" target="_blank" style="color:var(--accent);">arxiv.org/abs/1912.11035</a></td>
+          </tr>
+          <tr>
+            <td><strong>[3]</strong></td>
+            <td>Towards Universal Fake Image Detection Exploiting Style Latent Space</td>
+            <td>Ojha et al.</td>
+            <td>2023</td>
+            <td><a href="https://arxiv.org/abs/2302.06639" target="_blank" style="color:var(--accent);">arxiv.org/abs/2302.06639</a></td>
+          </tr>
+          <tr>
+            <td><strong>[4]</strong></td>
+            <td>Exposing GAN-generated Faces Using Inconsistent Corneal Specular Highlights</td>
+            <td>Hu et al.</td>
+            <td>2021</td>
+            <td><a href="https://arxiv.org/abs/2106.10970" target="_blank" style="color:var(--accent);">arxiv.org/abs/2106.10970</a></td>
+          </tr>
+          <tr>
+            <td><strong>[5]</strong></td>
+            <td>FakeLocator: Robust Localization of GAN-Based Face Manipulations via Semantic Segmentation</td>
+            <td>Huang et al.</td>
+            <td>2022</td>
+            <td><a href="https://arxiv.org/abs/2001.09598" target="_blank" style="color:var(--accent);">arxiv.org/abs/2001.09598</a></td>
+          </tr>
+          <tr>
+            <td><strong>[6]</strong></td>
+            <td>Diffusion Models Already Have a Semantic Latent Space</td>
+            <td>Kwon et al.</td>
+            <td>2023</td>
+            <td><a href="https://arxiv.org/abs/2210.10960" target="_blank" style="color:var(--accent);">arxiv.org/abs/2210.10960</a></td>
+          </tr>
+          <tr>
+            <td><strong>[7]</strong></td>
+            <td>Dire for Diffusion-Generated Image Detection</td>
+            <td>Wang et al.</td>
+            <td>2023</td>
+            <td><a href="https://arxiv.org/abs/2303.09295" target="_blank" style="color:var(--accent);">arxiv.org/abs/2303.09295</a></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📐 Mathematics & Signal Processing Foundations</h2>
+      <div class="table-wrap">
+        <table>
+          <tr>
+            <th>#</th>
+            <th>Resource</th>
+            <th>Authors / Source</th>
+            <th>Link</th>
+          </tr>
+          <tr>
+            <td><strong>[8]</strong></td>
+            <td>Statistics of Natural Images (1/f Power Law)</td>
+            <td>Ruderman & Bialek, 1994</td>
+            <td><a href="https://pubmed.ncbi.nlm.nih.gov/10174056/" target="_blank" style="color:var(--accent);">pubmed.ncbi.nlm.nih.gov</a></td>
+          </tr>
+          <tr>
+            <td><strong>[9]</strong></td>
+            <td>Principal Component Analysis — A Tutorial</td>
+            <td>Shlens, Google Brain</td>
+            <td><a href="https://arxiv.org/abs/1404.1100" target="_blank" style="color:var(--accent);">arxiv.org/abs/1404.1100</a></td>
+          </tr>
+          <tr>
+            <td><strong>[10]</strong></td>
+            <td>Digital Image Processing (Textbook, 4th Ed.)</td>
+            <td>Gonzalez & Woods</td>
+            <td><a href="https://www.pearson.com/en-us/subject-catalog/p/digital-image-processing/P200000003329" target="_blank" style="color:var(--accent);">pearson.com</a></td>
+          </tr>
+          <tr>
+            <td><strong>[11]</strong></td>
+            <td>Photo Response Non-Uniformity (PRNU) for Camera Fingerprinting</td>
+            <td>Lukas et al., IEEE 2006</td>
+            <td><a href="https://ieeexplore.ieee.org/document/1634362" target="_blank" style="color:var(--accent);">ieeexplore.ieee.org</a></td>
+          </tr>
+          <tr>
+            <td><strong>[12]</strong></td>
+            <td>Sobel–Feldman Operator (Gradient Computation)</td>
+            <td>Wikipedia / Sobel, 1968</td>
+            <td><a href="https://en.wikipedia.org/wiki/Sobel_operator" target="_blank" style="color:var(--accent);">en.wikipedia.org/wiki/Sobel_operator</a></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🤖 AI Generation & Diffusion Model References</h2>
+      <div class="table-wrap">
+        <table>
+          <tr>
+            <th>#</th>
+            <th>Resource</th>
+            <th>Authors</th>
+            <th>Year</th>
+            <th>Link</th>
+          </tr>
+          <tr>
+            <td><strong>[13]</strong></td>
+            <td>Denoising Diffusion Probabilistic Models (DDPM)</td>
+            <td>Ho et al., NeurIPS</td>
+            <td>2020</td>
+            <td><a href="https://arxiv.org/abs/2006.11239" target="_blank" style="color:var(--accent);">arxiv.org/abs/2006.11239</a></td>
+          </tr>
+          <tr>
+            <td><strong>[14]</strong></td>
+            <td>High-Resolution Image Synthesis with Latent Diffusion Models (Stable Diffusion)</td>
+            <td>Rombach et al.</td>
+            <td>2022</td>
+            <td><a href="https://arxiv.org/abs/2112.10752" target="_blank" style="color:var(--accent);">arxiv.org/abs/2112.10752</a></td>
+          </tr>
+          <tr>
+            <td><strong>[15]</strong></td>
+            <td>Generative Adversarial Networks (GANs)</td>
+            <td>Goodfellow et al.</td>
+            <td>2014</td>
+            <td><a href="https://arxiv.org/abs/1406.2661" target="_blank" style="color:var(--accent);">arxiv.org/abs/1406.2661</a></td>
+          </tr>
+          <tr>
+            <td><strong>[16]</strong></td>
+            <td>DALL·E 3: Improving Image Generation with Better Captions</td>
+            <td>Betker et al., OpenAI</td>
+            <td>2023</td>
+            <td><a href="https://cdn.openai.com/papers/dall-e-3.pdf" target="_blank" style="color:var(--accent);">cdn.openai.com/papers/dall-e-3.pdf</a></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🌐 Standards, Policy & Governance</h2>
+      <div class="table-wrap">
+        <table>
+          <tr>
+            <th>#</th>
+            <th>Resource</th>
+            <th>Organisation</th>
+            <th>Link</th>
+          </tr>
+          <tr>
+            <td><strong>[17]</strong></td>
+            <td>Coalition for Content Provenance and Authenticity (C2PA)</td>
+            <td>Adobe, Microsoft, BBC, etc.</td>
+            <td><a href="https://c2pa.org" target="_blank" style="color:var(--accent);">c2pa.org</a></td>
+          </tr>
+          <tr>
+            <td><strong>[18]</strong></td>
+            <td>EU Artificial Intelligence Act — Full Text</td>
+            <td>European Parliament</td>
+            <td><a href="https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689" target="_blank" style="color:var(--accent);">eur-lex.europa.eu</a></td>
+          </tr>
+          <tr>
+            <td><strong>[19]</strong></td>
+            <td>DEFIANCE Act — Deepfake Legislation</td>
+            <td>U.S. Senate</td>
+            <td><a href="https://www.congress.gov/bill/118th-congress/senate-bill/4569" target="_blank" style="color:var(--accent);">congress.gov</a></td>
+          </tr>
+          <tr>
+            <td><strong>[20]</strong></td>
+            <td>Content Credentials — Adobe & C2PA Implementation</td>
+            <td>Adobe Inc.</td>
+            <td><a href="https://contentcredentials.org" target="_blank" style="color:var(--accent);">contentcredentials.org</a></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🛠️ Tools & Libraries Used / Referenced</h2>
+      <div class="table-wrap">
+        <table>
+          <tr>
+            <th>Tool / Library</th>
+            <th>Purpose in This Guide</th>
+            <th>Link</th>
+          </tr>
+          <tr>
+            <td><strong>NumPy</strong></td>
+            <td>Matrix operations, gradient computation, eigenvalue decomposition</td>
+            <td><a href="https://numpy.org" target="_blank" style="color:var(--accent);">numpy.org</a></td>
+          </tr>
+          <tr>
+            <td><strong>Pillow (PIL)</strong></td>
+            <td>Image loading and RGB channel extraction</td>
+            <td><a href="https://python-pillow.org" target="_blank" style="color:var(--accent);">python-pillow.org</a></td>
+          </tr>
+          <tr>
+            <td><strong>OpenCV</strong></td>
+            <td>Advanced gradient computation (Sobel filter, Canny edge detection)</td>
+            <td><a href="https://opencv.org" target="_blank" style="color:var(--accent);">opencv.org</a></td>
+          </tr>
+          <tr>
+            <td><strong>scikit-learn</strong></td>
+            <td>PCA implementation and classification pipeline</td>
+            <td><a href="https://scikit-learn.org" target="_blank" style="color:var(--accent);">scikit-learn.org</a></td>
+          </tr>
+          <tr>
+            <td><strong>Matplotlib</strong></td>
+            <td>Gradient field visualisation and scatter plots</td>
+            <td><a href="https://matplotlib.org" target="_blank" style="color:var(--accent);">matplotlib.org</a></td>
+          </tr>
+          <tr>
+            <td><strong>FaceForensics++ Dataset</strong></td>
+            <td>Benchmark dataset for fake image detection research</td>
+            <td><a href="https://github.com/ondyari/FaceForensics" target="_blank" style="color:var(--accent);">github.com/ondyari/FaceForensics</a></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📖 Recommended Further Reading</h2>
+      <div class="table-wrap">
+        <table>
+          <tr>
+            <th>Resource</th>
+            <th>Type</th>
+            <th>Why Read It</th>
+            <th>Link</th>
+          </tr>
+          <tr>
+            <td><strong>Deepfake Detection Challenge (DFDC)</strong></td>
+            <td>Dataset + Competition</td>
+            <td>Largest public benchmark for fake image/video detection</td>
+            <td><a href="https://ai.meta.com/datasets/dfdc/" target="_blank" style="color:var(--accent);">ai.meta.com/datasets/dfdc</a></td>
+          </tr>
+          <tr>
+            <td><strong>MIT Technology Review — Deepfakes</strong></td>
+            <td>Article Series</td>
+            <td>Non-technical overview of the societal impact of synthetic media</td>
+            <td><a href="https://www.technologyreview.com/topic/artificial-intelligence/deepfakes/" target="_blank" style="color:var(--accent);">technologyreview.com</a></td>
+          </tr>
+          <tr>
+            <td><strong>3Blue1Brown — Essence of Linear Algebra</strong></td>
+            <td>Video Series (YouTube)</td>
+            <td>Best visual explanation of matrices, eigenvectors, and PCA</td>
+            <td><a href="https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab" target="_blank" style="color:var(--accent);">youtube.com (3B1B)</a></td>
+          </tr>
+          <tr>
+            <td><strong>StatQuest — PCA Step by Step</strong></td>
+            <td>Video (YouTube)</td>
+            <td>The clearest non-technical PCA explanation available</td>
+            <td><a href="https://www.youtube.com/watch?v=FgakZw6K1QQ" target="_blank" style="color:var(--accent);">youtube.com (StatQuest)</a></td>
+          </tr>
+          <tr>
+            <td><strong>Original LinkedIn Post (Inspiration)</strong></td>
+            <td>Social Media</td>
+            <td>The post that inspired this deep-dive guide</td>
+            <td><a href="https://www.linkedin.com/posts/kavishka-abeywardana-01b891214_synthetic-image-detection-using-gradient-share-7449285853106921472-OB_A/" target="_blank" style="color:var(--accent);">linkedin.com</a></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="callout">
+      <h3>📌 Citation Format (APA)</h3>
+      <p>
+        Vattanac, S. (2026). <em>Synthetic Image Detection Using Gradient Fields: A Non-Technical Deep Dive.</em> Interactive Educational Guide. Contact: vattanacsim99@gmail.com
+      </p>
+    </div>
+
+    <div style="text-align:center; padding: 32px 0 8px; color: var(--text-muted); font-size:12px; line-height:2;">
+      <div style="font-size:22px; margin-bottom:8px;">🔍</div>
+      <strong style="color:var(--text);">© 2026 Sim Vattanac</strong><br>
+      All content compiled for educational purposes.<br>
+      <a href="mailto:vattanacsim99@gmail.com" style="color:var(--accent); text-decoration:none;">vattanacsim99@gmail.com</a>
+    </div>
+  </section>
+
 <!-- Back to top -->
 <div class="back-to-top" id="backToTop" onclick="scrollToTop()">↑</div>
 
 <script>
+// ─── roundRect polyfill ────────────────────────────────────────────
+if(!CanvasRenderingContext2D.prototype.roundRect){
+  CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){
+    this.beginPath();
+    this.moveTo(x+r,y);
+    this.lineTo(x+w-r,y); this.quadraticCurveTo(x+w,y,x+w,y+r);
+    this.lineTo(x+w,y+h-r); this.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    this.lineTo(x+r,y+h); this.quadraticCurveTo(x,y+h,x,y+h-r);
+    this.lineTo(x,y+r); this.quadraticCurveTo(x,y,x+r,y);
+    this.closePath();
+  };
+}
+
 // ─── NAVIGATION ────────────────────────────────────────────────────
 function showSection(id, el) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -2581,8 +3005,364 @@ function drawScatter() {
 }
 
 // Init on load
-window.addEventListener('load', drawScatter);
+window.addEventListener('load', () => { drawScatter(); initWorkedExample(); });
 window.addEventListener('resize', drawScatter);
+
+// ─── WORKED EXAMPLE DATA ──────────────────────────────────────────
+const pixels = [
+  {r:200,g:80,b:40},{r:180,g:75,b:38},{r:100,g:50,b:20},
+  {r:210,g:85,b:42},{r:190,g:80,b:39},{r:105,g:52,b:21},
+  {r:190,g:78,b:39},{r:170,g:72,b:36},{r:95,g:48,b:19}
+];
+const lum = [102.6,94.6,58.5, 108.1,99.5,61.2, 97.4,89.8,55.9];
+const gx  = [-8.0,-44.1,-36.1, -8.2,-46.4,-38.3, -7.6,-41.5,-33.9];
+const gy  = [ 5.5,  4.9,  2.7, -5.2, -4.8, -2.6, -5.2, -4.8, -2.6];
+const labels = ['r1c1','r1c2','r1c3','r2c1','r2c2','r2c3','r3c1','r3c2','r3c3'];
+
+function lum2gray(l){ const v=Math.round(l); return `rgb(${v},${v},${v})`; }
+function isDark(){ return document.documentElement.getAttribute('data-theme')==='dark'; }
+
+// ─── DIAGRAM 0: PIXEL GRID ────────────────────────────────────────
+function buildPixelGrid(){
+  const grid = document.getElementById('pixelGrid'); if(!grid) return;
+  grid.innerHTML = '';
+  pixels.forEach((p,i)=>{
+    const row=Math.floor(i/3)+1, col=(i%3)+1;
+    const cell = document.createElement('div');
+    cell.style.cssText=`width:80px;height:80px;border-radius:10px;background:rgb(${p.r},${p.g},${p.b});
+      display:flex;align-items:flex-end;justify-content:center;padding:4px;
+      cursor:pointer;transition:transform .2s,box-shadow .2s;font-size:9.5px;
+      font-weight:700;color:rgba(255,255,255,.9);text-shadow:0 1px 3px rgba(0,0,0,.7);
+      box-shadow:0 2px 8px rgba(0,0,0,.2);`;
+    cell.textContent=`(${p.r},${p.g},${p.b})`;
+    cell.onmouseenter=()=>{
+      cell.style.transform='scale(1.08)';
+      cell.style.boxShadow='0 6px 20px rgba(0,0,0,.35)';
+      document.getElementById('pixelDetail').innerHTML=
+        `<b>Position:</b> Row ${row}, Col ${col}<br>
+         <b style="color:#e74c3c">R = ${p.r}</b><br>
+         <b style="color:#27ae60">G = ${p.g}</b><br>
+         <b style="color:#2980b9">B = ${p.b}</b><br>
+         <b style="color:var(--accent)">L = ${lum[i]}</b>`;
+    };
+    cell.onmouseleave=()=>{
+      cell.style.transform='scale(1)';
+      cell.style.boxShadow='0 2px 8px rgba(0,0,0,.2)';
+    };
+    grid.appendChild(cell);
+  });
+}
+
+// ─── DIAGRAM 1: LUMINANCE GRIDS ──────────────────────────────────
+function buildLumGrids(){
+  ['lumColorGrid','lumGrayGrid'].forEach(id=>{
+    const g=document.getElementById(id); if(!g) return; g.innerHTML='';
+  });
+  const cg=document.getElementById('lumColorGrid');
+  const gg=document.getElementById('lumGrayGrid');
+  const lv=document.getElementById('lumValues');
+  if(!cg||!gg) return;
+  pixels.forEach((p,i)=>{
+    const cc=document.createElement('div');
+    cc.style.cssText=`width:72px;height:62px;border-radius:8px;background:rgb(${p.r},${p.g},${p.b});`;
+    cg.appendChild(cc);
+    const gc=document.createElement('div');
+    const v=Math.round(lum[i]);
+    gc.style.cssText=`width:72px;height:62px;border-radius:8px;background:rgb(${v},${v},${v});
+      display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;
+      color:${v>128?'#111':'#eee'};`;
+    gc.textContent=lum[i];
+    gg.appendChild(gc);
+  });
+  if(lv) lv.innerHTML=`
+    [${lum[0]} ${lum[1]} ${lum[2]}]<br>
+    [${lum[3]} ${lum[4]} ${lum[5]}]<br>
+    [${lum[6]} ${lum[7]} ${lum[8]}]`;
+  // Animate weight bars
+  setTimeout(()=>{
+    document.querySelectorAll('.anim-bar').forEach(b=>{
+      b.style.width = b.dataset.target + '%';
+    });
+  }, 300);
+}
+
+// ─── DIAGRAM 2: GRADIENT CANVASES ────────────────────────────────
+function drawGradientCanvases(){
+  drawHeatmap('gxCanvas', gx, '#e74c3c', '#2ecc71');
+  drawHeatmap('gyCanvas', gy, '#3498db', '#e67e22');
+  drawVectorField('vectorCanvas');
+}
+
+function drawHeatmap(id, vals, negColor, posColor){
+  const c=document.getElementById(id); if(!c) return;
+  const ctx=c.getContext('2d');
+  const W=c.width, H=c.height, cell=W/3;
+  const bg = isDark() ? '#1e2240' : '#f7f8fc';
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+  const mx=Math.max(...vals.map(Math.abs));
+  vals.forEach((v,i)=>{
+    const col=Math.floor(i/3), row=i%3; // Note: stored row-major
+    const ci=i%3, ri=Math.floor(i/3);
+    const x=ci*cell, y=ri*cell;
+    const t=v/mx; // -1..1
+    let r,g,b;
+    if(t<0){
+      // negative → negColor
+      const nc=hexToRgb(negColor);
+      r=255+(nc.r-255)*(-t); g=255+(nc.g-255)*(-t); b=255+(nc.b-255)*(-t);
+    } else {
+      const pc=hexToRgb(posColor);
+      r=255+(pc.r-255)*t; g=255+(pc.g-255)*t; b=255+(pc.b-255)*t;
+    }
+    if(isDark()){ r*=0.85; g*=0.85; b*=0.85; }
+    ctx.fillStyle=`rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`;
+    ctx.beginPath(); ctx.roundRect(x+3,y+3,cell-6,cell-6,8); ctx.fill();
+    // Value label
+    ctx.fillStyle = isDark() ? '#edf0ff' : '#1a1d2e';
+    ctx.font='bold 13px system-ui'; ctx.textAlign='center';
+    ctx.fillText(v.toFixed(1), x+cell/2, y+cell/2+5);
+  });
+}
+
+function hexToRgb(hex){
+  const r=parseInt(hex.slice(1,3),16);
+  const g=parseInt(hex.slice(3,5),16);
+  const b=parseInt(hex.slice(5,7),16);
+  return {r,g,b};
+}
+
+function drawVectorField(id){
+  const c=document.getElementById(id); if(!c) return;
+  const ctx=c.getContext('2d');
+  const W=c.width, H=c.height, cell=W/3;
+  const bg=isDark()?'#1e2240':'#f7f8fc';
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+  // Draw grid bg
+  for(let i=0;i<9;i++){
+    const ci=i%3, ri=Math.floor(i/3);
+    ctx.fillStyle=isDark()?'rgba(255,255,255,.04)':'rgba(0,0,0,.03)';
+    ctx.beginPath(); ctx.roundRect(ci*cell+3,ri*cell+3,cell-6,cell-6,8); ctx.fill();
+  }
+  const maxMag=Math.max(...gx.map((v,i)=>Math.sqrt(v*v+gy[i]*gy[i])));
+  for(let i=0;i<9;i++){
+    const ci=i%3, ri=Math.floor(i/3);
+    const cx2=ci*cell+cell/2, cy2=ri*cell+cell/2;
+    const mag=Math.sqrt(gx[i]**2+gy[i]**2);
+    const norm=mag/maxMag;
+    const angle=Math.atan2(gy[i],gx[i]);
+    const len=norm*32;
+    const ex=cx2+Math.cos(angle)*len;
+    const ey=cy2+Math.sin(angle)*len;
+    // Arrow color by magnitude
+    const hue = norm > 0.5 ? 260 : 150;
+    ctx.strokeStyle=`hsla(${hue},80%,${isDark()?65:45}%,${0.4+norm*0.6})`;
+    ctx.lineWidth=2+norm*2;
+    ctx.beginPath(); ctx.moveTo(cx2,cy2); ctx.lineTo(ex,ey); ctx.stroke();
+    // Arrowhead
+    const headLen=7;
+    const ha1=angle-Math.PI/6, ha2=angle+Math.PI/6;
+    ctx.fillStyle=`hsla(${hue},80%,${isDark()?65:45}%,.9)`;
+    ctx.beginPath();
+    ctx.moveTo(ex,ey);
+    ctx.lineTo(ex-headLen*Math.cos(ha1),ey-headLen*Math.sin(ha1));
+    ctx.lineTo(ex-headLen*Math.cos(ha2),ey-headLen*Math.sin(ha2));
+    ctx.closePath(); ctx.fill();
+    // Magnitude dot at origin
+    ctx.fillStyle=`hsla(${hue},80%,${isDark()?65:45}%,.5)`;
+    ctx.beginPath(); ctx.arc(cx2,cy2,3,0,Math.PI*2); ctx.fill();
+  }
+}
+
+// ─── DIAGRAM 3: FLATTEN ANIMATION ────────────────────────────────
+let flatTimer=null, flatStep=0;
+
+function buildFlattenGrid(){
+  const g=document.getElementById('flattenGrid'); if(!g) return;
+  g.innerHTML='';
+  pixels.forEach((p,i)=>{
+    const cell=document.createElement('div');
+    cell.id=`fp${i}`;
+    cell.style.cssText=`width:72px;height:62px;border-radius:8px;background:rgb(${p.r},${p.g},${p.b});
+      transition:all .4s;display:flex;align-items:center;justify-content:center;
+      font-size:10px;font-weight:700;color:rgba(255,255,255,.9);text-shadow:0 1px 3px rgba(0,0,0,.6);`;
+    cell.textContent=labels[i];
+    g.appendChild(cell);
+  });
+  const m=document.getElementById('matrixM');
+  if(m) m.innerHTML='<span style="color:var(--text-muted)">… waiting …</span>';
+}
+
+function startFlattenAnim(){
+  if(flatTimer) clearInterval(flatTimer);
+  flatStep=0;
+  // Reset
+  pixels.forEach((_,i)=>{
+    const c=document.getElementById(`fp${i}`);
+    if(c){ c.style.opacity='1'; c.style.transform='scale(1)'; }
+  });
+  const m=document.getElementById('matrixM');
+  if(m) m.innerHTML='<span style="color:var(--accent);font-weight:700;">Gx &nbsp;&nbsp;&nbsp;&nbsp; Gy</span><br>';
+  flatTimer=setInterval(()=>{
+    if(flatStep>=9){ clearInterval(flatTimer); return; }
+    const c=document.getElementById(`fp${flatStep}`);
+    if(c){ c.style.transform='scale(1.15)'; c.style.boxShadow='0 0 0 3px var(--accent)'; }
+    setTimeout(()=>{
+      if(c){ c.style.transform='scale(1)'; c.style.boxShadow='none'; c.style.opacity='0.35'; }
+    },500);
+    const m=document.getElementById('matrixM');
+    if(m){
+      const row=`<span style="color:var(--accent);opacity:0;transition:opacity .4s" id="mrow${flatStep}">
+        [ ${gx[flatStep].toFixed(1).padStart(6)}  ${gy[flatStep].toFixed(1).padStart(5)} ]
+        <span style="color:var(--text-muted);font-size:10px;"> ← ${labels[flatStep]}</span></span><br>`;
+      m.innerHTML += row;
+      setTimeout(()=>{
+        const r=document.getElementById(`mrow${flatStep}`);
+        if(r) r.style.opacity='1';
+      },100);
+    }
+    flatStep++;
+  }, 700);
+}
+
+// ─── DIAGRAM 4: COVARIANCE ANIMATION ─────────────────────────────
+function animateCovariance(){
+  // Animate bars
+  document.querySelectorAll('.cov-bar').forEach(b=>{
+    b.style.width='0%';
+    setTimeout(()=>{ b.style.width=b.dataset.target+'%'; },100);
+    const lbl=b.nextElementSibling;
+    if(lbl){ lbl.style.opacity='0'; setTimeout(()=>{ lbl.style.opacity='1'; },1000); }
+  });
+  // Count up matrix values
+  const targets={cmat11:1103.1, cmat12:-2.8, cmat21:-2.8, cmat22:19.5};
+  Object.entries(targets).forEach(([id,val])=>{
+    const el=document.getElementById(id); if(!el) return;
+    let start=0, dur=1500, startTime=null;
+    function step(ts){
+      if(!startTime) startTime=ts;
+      const p=Math.min((ts-startTime)/dur,1);
+      el.textContent=(start+(val-start)*p).toFixed(1);
+      if(p<1) requestAnimationFrame(step);
+    }
+    setTimeout(()=>requestAnimationFrame(step), 200);
+  });
+}
+
+// ─── DIAGRAM 5: GAUGE ─────────────────────────────────────────────
+let gaugeVal=0;
+
+function drawGauge(val){
+  const c=document.getElementById('gaugeCanvas'); if(!c) return;
+  const ctx=c.getContext('2d');
+  const W=c.width, H=c.height;
+  ctx.clearRect(0,0,W,H);
+  const cx=W/2, cy=H-20, r=130;
+
+  // Arc zones
+  const zones=[
+    {from:Math.PI,  to:Math.PI*1.3,  color:'#ff6584', label:'FAKE'},
+    {from:Math.PI*1.3, to:Math.PI*1.55, color:'#f6c90e', label:'⚠️'},
+    {from:Math.PI*1.55, to:Math.PI*2.0, color:'#43d9ad', label:'REAL'},
+  ];
+  zones.forEach(z=>{
+    ctx.beginPath();
+    ctx.arc(cx,cy,r,z.from,z.to);
+    ctx.arc(cx,cy,r-24,z.to,z.from,true);
+    ctx.closePath();
+    ctx.fillStyle=z.color+'55';
+    ctx.strokeStyle=z.color;
+    ctx.lineWidth=2;
+    ctx.fill(); ctx.stroke();
+  });
+
+  // Tick marks
+  for(let i=0;i<=10;i++){
+    const angle=Math.PI + (i/10)*Math.PI;
+    const ix1=cx+Math.cos(angle)*(r-28);
+    const iy1=cy+Math.sin(angle)*(r-28);
+    const ix2=cx+Math.cos(angle)*(r-8);
+    const iy2=cy+Math.sin(angle)*(r-8);
+    ctx.beginPath(); ctx.moveTo(ix1,iy1); ctx.lineTo(ix2,iy2);
+    ctx.strokeStyle=isDark()?'rgba(255,255,255,.3)':'rgba(0,0,0,.2)';
+    ctx.lineWidth=i%5===0?2:1; ctx.stroke();
+    if(i%5===0){
+      const lx=cx+Math.cos(angle)*(r-46);
+      const ly=cy+Math.sin(angle)*(r-46);
+      ctx.fillStyle=isDark()?'#8891b4':'#6b7280';
+      ctx.font='11px system-ui'; ctx.textAlign='center';
+      ctx.fillText((i/10).toFixed(1),lx,ly+4);
+    }
+  }
+
+  // Labels
+  ctx.fillStyle='#ff6584'; ctx.font='bold 11px system-ui'; ctx.textAlign='center';
+  ctx.fillText('FAKE',cx-95,cy-30);
+  ctx.fillStyle='#43d9ad';
+  ctx.fillText('REAL',cx+95,cy-30);
+
+  // Needle
+  const angle=Math.PI + val*Math.PI;
+  const nx=cx+Math.cos(angle)*(r-14);
+  const ny=cy+Math.sin(angle)*(r-14);
+  const color = val < 0.55 ? '#ff6584' : val < 0.70 ? '#f6c90e' : '#43d9ad';
+  ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(nx,ny);
+  ctx.strokeStyle=color; ctx.lineWidth=3.5;
+  ctx.lineCap='round'; ctx.stroke();
+  // Hub
+  ctx.beginPath(); ctx.arc(cx,cy,8,0,Math.PI*2);
+  ctx.fillStyle=color; ctx.fill();
+
+  // Update label
+  const lbl=document.getElementById('gaugeLabel');
+  const vrd=document.getElementById('gaugeVerdict');
+  if(lbl) lbl.style.color=color;
+  if(lbl) lbl.textContent=val.toFixed(3);
+  if(vrd){
+    if(val>=0.70){ vrd.textContent='✅ LIKELY REAL'; vrd.style.color='#43d9ad'; }
+    else if(val>=0.55){ vrd.textContent='⚠️ SUSPICIOUS'; vrd.style.color='#f6c90e'; }
+    else { vrd.textContent='🚨 LIKELY FAKE'; vrd.style.color='#ff6584'; }
+  }
+}
+
+function animateGauge(){
+  gaugeVal=0;
+  const target=0.983;
+  const start=Date.now(), dur=1800;
+  function step(){
+    const p=Math.min((Date.now()-start)/dur,1);
+    const ease=1-Math.pow(1-p,3);
+    gaugeVal=ease*target;
+    drawGauge(gaugeVal);
+    if(p<1) requestAnimationFrame(step);
+    else {
+      // Also animate verdict bars
+      const v1=document.getElementById('vbar1');
+      if(v1) v1.style.width='98.3%';
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+// ─── INIT ALL WORKED EXAMPLE DIAGRAMS ────────────────────────────
+function initWorkedExample(){
+  buildPixelGrid();
+  buildLumGrids();
+  drawGradientCanvases();
+  buildFlattenGrid();
+  drawGauge(0);
+}
+
+// Re-run when switching to the worked section
+const origShowSection = showSection;
+showSection = function(id, el){
+  origShowSection(id, el);
+  if(id==='worked'){
+    setTimeout(()=>{
+      initWorkedExample();
+      setTimeout(animateCovariance, 400);
+    }, 100);
+  }
+};
 </script>
 </body>
 </html>
